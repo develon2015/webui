@@ -1,4 +1,6 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { ToolPanel } from '@develon/webui-panel'
+</script>
 
 <template>
   <h1>You did it!</h1>

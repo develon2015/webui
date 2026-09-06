@@ -11,7 +11,7 @@ const plugin: ObjectPlugin<any[]> = {
     install(app: App, ...options) {
         components.forEach(component => {
             const name = component.name || component.__name;
-            console.log({ options })
+            console.log('install component:', name, options)
             if (name) {
                 app.component(name, component)
             }
@@ -21,4 +21,5 @@ const plugin: ObjectPlugin<any[]> = {
 
 export {
     plugin,
+    ToolPanel,
 }
