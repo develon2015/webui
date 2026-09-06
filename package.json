@@ -1,0 +1,6 @@
+{
+    "name": "@develon/webui",
+    "workspaces": [
+        "packages/*"
+    ]
+}
