@@ -2,10 +2,24 @@
 
 <template>
   <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <div>
+    <ToolPanel title="构建工具" class="panel">
+      <div class="content">
+        <button>构建</button>
+        <button>清理</button>
+      </div>
+    </ToolPanel>
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped lang="scss">
+.panel {
+  width: 400px;
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+</style>
