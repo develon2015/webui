@@ -2,5 +2,9 @@
     "name": "@develon/webui",
     "workspaces": [
         "packages/*"
-    ]
+    ],
+    "scripts": {
+        "build": "npm run build --ws",
+        "preview": "npm run dev -w @develon/webui-preview"
+    }
 }
