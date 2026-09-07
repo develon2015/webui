@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     vue({
       features: {
-        customElement: /.vue$/, // 将文件名匹配的 Vue SFC 转换为自定义元素，默认值: /.ce.vue$/
+        customElement: /.ce.vue$/, // 将文件名匹配的 Vue SFC 转换为自定义元素，默认值: /.ce.vue$/
       },
     }),
     dts({
@@ -32,10 +32,10 @@ export default defineConfig({
       formats: ['es'],
     },
     rolldownOptions: {
-      external: ['vue'],
+      external: ['vue'], // 指定哪些模块应视为外部模块而不是捆绑的。外部模块将作为导入语句保留在输出中。
       output: {
         globals: {
-          vue: 'VueSB',
+          vue: 'Vue', // 指定 umd / iife 格式的外部导入所需的 id:variableName 对。
         },
       },
     },
