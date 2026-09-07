@@ -1,6 +1,6 @@
 <template>
   <div ref="panelRef" class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)` }">
-    <div class="panel-header" :class="{ 'is-draggable': draggable }" @mousedown="onHeaderMouseDown">
+    <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHeaderPointerDown">
       <div class="header-decoration">
         <span class="color-block block-1"></span>
         <span class="color-block block-2"></span>
@@ -55,17 +55,11 @@ const emit = defineEmits<{
 // 拖动偏移量
 const panelRef = ref<HTMLElement>()
 const offset = reactive({ x: 0, y: 0 })
-let startX = 0
-let startY = 0
-let startOffsetX = 0
-let startOffsetY = 0
-let minOffsetX = 0
-let maxOffsetX = 0
-let minOffsetY = 0
-let maxOffsetY = 0
+let [startX, startY, startOffsetX, startOffsetY] = [0, 0, 0, 0]
+let [minOffsetX, maxOffsetX, minOffsetY, maxOffsetY] = [0, 0, 0, 0]
 let dragging = false
 
-function onMouseMove(e: MouseEvent) {
+function onPointerMove(e: PointerEvent) {
   if (!dragging) return
   offset.x = clamp(startOffsetX + (e.clientX - startX), minOffsetX, maxOffsetX)
   offset.y = clamp(startOffsetY + (e.clientY - startY), minOffsetY, maxOffsetY)
@@ -75,17 +69,18 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
-function onMouseUp() {
+function onPointerUp() {
   dragging = false
-  document.removeEventListener('mousemove', onMouseMove)
-  document.removeEventListener('mouseup', onMouseUp)
+  document.removeEventListener('pointermove', onPointerMove)
+  document.removeEventListener('pointerup', onPointerUp)
+  document.removeEventListener('pointercancel', onPointerUp)
   document.body.style.userSelect = ''
 }
 
-function onHeaderMouseDown(e: MouseEvent) {
+function onHeaderPointerDown(e: PointerEvent) {
   if (!props.draggable) return
   const target = e.target as HTMLElement
-  if (target.closest('.op-btn') || target.closest('.category-tab')) return
+  if (target.closest('.op-btn')) return
 
   const el = panelRef.value
   if (!el) return
@@ -103,17 +98,15 @@ function onHeaderMouseDown(e: MouseEvent) {
   ;[minOffsetY, maxOffsetY] = [Math.min(minOffsetY, maxOffsetY), Math.max(minOffsetY, maxOffsetY)]
 
   dragging = true
-  startX = e.clientX
-  startY = e.clientY
-  startOffsetX = offset.x
-  startOffsetY = offset.y
+  ;[startX, startY, startOffsetX, startOffsetY] = [e.clientX, e.clientY, offset.x, offset.y]
   document.body.style.userSelect = 'none'
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
+  document.addEventListener('pointermove', onPointerMove)
+  document.addEventListener('pointerup', onPointerUp)
+  document.addEventListener('pointercancel', onPointerUp)
 }
 
 onBeforeUnmount(() => {
-  onMouseUp()
+  onPointerUp()
 })
 </script>
 
@@ -152,7 +145,8 @@ $text-color: #c5d8f0;
     user-select: none;
 
     &.is-draggable {
-      cursor: move;
+      cursor: grab;
+      touch-action: none;
     }
 
     .header-decoration {
@@ -192,6 +186,7 @@ $text-color: #c5d8f0;
     .op-btn {
       width: 20px;
       height: 20px;
+      overflow: hidden;
       flex-shrink: 0;
       display: flex;
       align-items: center;
