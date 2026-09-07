@@ -1,5 +1,5 @@
 <template>
-  <div class="panel">
+  <div class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)` }">
     <div
       class="panel-header"
       :class="{ 'is-draggable': draggable }"
@@ -16,7 +16,7 @@
       <!-- 操作按钮组 -->
       <slot name="op">
         <div class="op-btn setting"@click="emit('setting')" v-if="btns.includes('setting')">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" style="color:#fff"><defs><g id="t"><rect x="-6" y="-32" width="12" height="14" rx="2" fill="currentColor"/></g></defs><g transform="translate(50,50)"><circle r="22" fill="currentColor"/><use href="#t"/><use href="#t" transform="rotate(45)"/><use href="#t" transform="rotate(90)"/><use href="#t" transform="rotate(135)"/><use href="#t" transform="rotate(180)"/><use href="#t" transform="rotate(225)"/><use href="#t" transform="rotate(270)"/><use href="#t" transform="rotate(315)"/><circle r="12" fill="#34495e"/></g></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" style="color:#fff"><defs><g id="t"><rect x="-6" y="-32" width="12" height="14" rx="2" fill="currentColor"/></g></defs><g transform="translate(50,50)"><circle r="22" fill="currentColor"/><use href="#t"/><use href="#t" transform="rotate(45)"/><use href="#t" transform="rotate(90)"/><use href="#t" transform="rotate(135)"/><use href="#t" transform="rotate(180)"/><use href="#t" transform="rotate(225)"/><use href="#t" transform="rotate(270)"/><use href="#t" transform="rotate(315)"/><circle r="12" fill="#34495e"/></g></svg>
         </div>
         <div class="op-btn menu" @click="emit('menu')" v-if="btns.includes('menu')">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color:#fff"><defs><g id="item" fill="currentColor"><ellipse cx="2.5" cy="3.167" rx="0.833" ry="0.833"/><path d="M13.833,3.666 L5.103,3.666 A0.5,0.5 0 0,0 5.103,2.666 L13.833,2.666 Z"/></g></defs><use href="#item"/><use href="#item" transform="translate(0,4.666)"/><use href="#item" transform="translate(0,9.666)"/></svg>
@@ -36,6 +36,8 @@
 </template>
 
 <script setup lang="ts">
+import { reactive, onBeforeUnmount } from 'vue'
+
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
 const props = withDefaults(defineProps<{
@@ -52,15 +54,47 @@ const emit = defineEmits<{
   min: []
   close: []
   setting: []
-  dragStart: [event: MouseEvent]
 }>()
+
+// 拖动偏移量
+const offset = reactive({ x: 0, y: 0 })
+let startX = 0
+let startY = 0
+let startOffsetX = 0
+let startOffsetY = 0
+let dragging = false
+
+function onMouseMove(e: MouseEvent) {
+  if (!dragging) return
+  offset.x = startOffsetX + (e.clientX - startX)
+  offset.y = startOffsetY + (e.clientY - startY)
+}
+
+function onMouseUp() {
+  dragging = false
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
+  document.body.style.userSelect = ''
+}
 
 function onHeaderMouseDown(e: MouseEvent) {
   if (!props.draggable) return
   const target = e.target as HTMLElement
   if (target.closest('.op-btn') || target.closest('.category-tab')) return
-  emit('dragStart', e)
+
+  dragging = true
+  startX = e.clientX
+  startY = e.clientY
+  startOffsetX = offset.x
+  startOffsetY = offset.y
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
 }
+
+onBeforeUnmount(() => {
+  onMouseUp()
+})
 </script>
 
 <style lang="scss" scoped>
