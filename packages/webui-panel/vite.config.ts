@@ -7,7 +7,11 @@ import dts from 'unplugin-dts/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
+    vue({
+      features: {
+        customElement: /.vue$/, // 将文件名匹配的 Vue SFC 转换为自定义元素，默认值: /.ce.vue$/
+      },
+    }),
     dts({
       bundleTypes: true, // 在生成类型声明文件后，是否对其进行打包
       tsconfigPath: './tsconfig.lib.json', // 从 tsconfig 中解析 include 和 exclude 规则

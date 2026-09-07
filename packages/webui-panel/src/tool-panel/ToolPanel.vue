@@ -117,6 +117,7 @@ $title-color: #ffffff;
 $text-color: #c5d8f0;
 
 .panel {
+  display: inline-block;
   min-width: 240px;
   padding: 0px;
   background: $panel-bg;
