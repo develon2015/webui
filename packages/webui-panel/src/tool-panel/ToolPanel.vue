@@ -1,10 +1,6 @@
 <template>
-  <div class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)` }">
-    <div
-      class="panel-header"
-      :class="{ 'is-draggable': draggable }"
-      @mousedown="onHeaderMouseDown"
-    >
+  <div ref="panelRef" class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)` }">
+    <div class="panel-header" :class="{ 'is-draggable': draggable }" @mousedown="onHeaderMouseDown">
       <div class="header-decoration">
         <span class="color-block block-1"></span>
         <span class="color-block block-2"></span>
@@ -36,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onBeforeUnmount } from 'vue'
+import { reactive, ref, onBeforeUnmount } from 'vue'
 
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
@@ -57,17 +53,26 @@ const emit = defineEmits<{
 }>()
 
 // 拖动偏移量
+const panelRef = ref<HTMLElement>()
 const offset = reactive({ x: 0, y: 0 })
 let startX = 0
 let startY = 0
 let startOffsetX = 0
 let startOffsetY = 0
+let minOffsetX = 0
+let maxOffsetX = 0
+let minOffsetY = 0
+let maxOffsetY = 0
 let dragging = false
 
 function onMouseMove(e: MouseEvent) {
   if (!dragging) return
-  offset.x = startOffsetX + (e.clientX - startX)
-  offset.y = startOffsetY + (e.clientY - startY)
+  offset.x = clamp(startOffsetX + (e.clientX - startX), minOffsetX, maxOffsetX)
+  offset.y = clamp(startOffsetY + (e.clientY - startY), minOffsetY, maxOffsetY)
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
 }
 
 function onMouseUp() {
@@ -81,6 +86,21 @@ function onHeaderMouseDown(e: MouseEvent) {
   if (!props.draggable) return
   const target = e.target as HTMLElement
   if (target.closest('.op-btn') || target.closest('.category-tab')) return
+
+  const el = panelRef.value
+  if (!el) return
+
+  // 根据面板当前位置与视口尺寸，计算本次拖动的偏移范围，防止面板拖出视口
+  const rect = el.getBoundingClientRect()
+  const baseLeft = rect.left - offset.x
+  const baseTop = rect.top - offset.y
+  minOffsetX = -baseLeft
+  maxOffsetX = window.innerWidth - rect.width - baseLeft
+  minOffsetY = -baseTop
+  maxOffsetY = window.innerHeight - rect.height - baseTop
+  // 面板尺寸超出视口时，取值区间会倒置，统一交换保证 clamp 有效
+  ;[minOffsetX, maxOffsetX] = [Math.min(minOffsetX, maxOffsetX), Math.max(minOffsetX, maxOffsetX)]
+  ;[minOffsetY, maxOffsetY] = [Math.min(minOffsetY, maxOffsetY), Math.max(minOffsetY, maxOffsetY)]
 
   dragging = true
   startX = e.clientX
