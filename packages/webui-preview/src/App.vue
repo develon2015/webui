@@ -11,6 +11,13 @@ import { ToolPanel } from '@develon/webui-panel'
         <button>清理</button>
       </div>
     </ToolPanel>
+
+    <ToolPanel title="测试工具" class="panel">
+      <div class="content">
+        <button>测试</button>
+        <button>调试</button>
+      </div>
+    </ToolPanel>
   </div>
 </template>
 

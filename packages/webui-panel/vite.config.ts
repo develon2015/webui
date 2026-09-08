@@ -32,10 +32,11 @@ export default defineConfig({
       formats: ['es'],
     },
     rolldownOptions: {
-      external: ['vue'], // 指定哪些模块应视为外部模块而不是捆绑的。外部模块将作为导入语句保留在输出中。
+      external: ['vue', 'pinia'], // 指定哪些模块应视为外部模块而不是捆绑的。外部模块将作为导入语句保留在输出中。
       output: {
         globals: {
           vue: 'Vue', // 指定 umd / iife 格式的外部导入所需的 id:variableName 对。
+          pinia: 'Pinia',
         },
       },
     },

@@ -1,5 +1,5 @@
 <template>
-  <div ref="panelRef" class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)` }">
+  <div ref="panelRef" class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex, willChange }">
     <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHeaderPointerDown">
       <div class="header-decoration">
         <span class="color-block block-1"></span>
@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { reactive, ref, onBeforeUnmount } from 'vue'
+import { useZIndexStore } from './z-index';
 
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
@@ -52,6 +53,10 @@ const emit = defineEmits<{
   setting: []
 }>()
 
+const zIndexStore = useZIndexStore()
+const zIndex = ref(zIndexStore.tapZIndex())
+const willChange = ref('')
+
 // 拖动偏移量
 const panelRef = ref<HTMLElement>()
 const offset = reactive({ x: 0, y: 0 })
@@ -59,18 +64,19 @@ let [startX, startY, startOffsetX, startOffsetY] = [0, 0, 0, 0]
 let [minOffsetX, maxOffsetX, minOffsetY, maxOffsetY] = [0, 0, 0, 0]
 let dragging = false
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
 function onPointerMove(e: PointerEvent) {
   if (!dragging) return
   offset.x = clamp(startOffsetX + (e.clientX - startX), minOffsetX, maxOffsetX)
   offset.y = clamp(startOffsetY + (e.clientY - startY), minOffsetY, maxOffsetY)
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max)
-}
-
 function onPointerUp() {
   dragging = false
+  willChange.value = ''
   document.removeEventListener('pointermove', onPointerMove)
   document.removeEventListener('pointerup', onPointerUp)
   document.removeEventListener('pointercancel', onPointerUp)
@@ -84,6 +90,12 @@ function onHeaderPointerDown(e: PointerEvent) {
 
   const el = panelRef.value
   if (!el) return
+
+  // 确保面板在其他面板之上
+  if (zIndex.value < zIndexStore.zIndex) {
+    zIndex.value = zIndexStore.tapZIndex()
+  }
+  willChange.value = 'transform'
 
   // 根据面板当前位置与视口尺寸，计算本次拖动的偏移范围，防止面板拖出视口
   const rect = el.getBoundingClientRect()
@@ -117,6 +129,7 @@ $title-color: #ffffff;
 $text-color: #c5d8f0;
 
 .panel {
+  position: relative;
   display: inline-block;
   min-width: 240px;
   padding: 0px;
