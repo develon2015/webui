@@ -1,5 +1,5 @@
 <template>
-  <div ref="panelRef" class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex, willChange }">
+  <div v-show="visible" ref="panelRef" class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex, willChange }">
     <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHeaderPointerDown">
       <div class="header-decoration">
         <span class="color-block block-1"></span>
@@ -20,7 +20,7 @@
         <div class="op-btn min" @click="emit('min')" v-if="btns.includes('min')">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color: #fff"><rect x="2.1667" y="7.6667" width="11.6667" height="1" rx="0.5" fill="currentColor"/></svg>
         </div>
-        <div class="op-btn close" @click="emit('close')" v-if="btns.includes('close')">
+        <div class="op-btn close" @click="close" v-if="btns.includes('close')">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color: #fff"><path d="M14.1871 13.1265L13.1265 14.1872L1.81275 2.87347L2.87341 1.81281L14.1871 13.1265Z" fill="currentColor"></path><path d="M13.1265 1.81282L14.1871 2.87348L2.8734 14.1872L1.81274 13.1265L13.1265 1.81282Z" fill="currentColor"></path></svg>
         </div>
       </slot>
@@ -32,8 +32,9 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, onBeforeUnmount } from 'vue'
-import { useZIndexStore } from './z-index';
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useZIndexStore } from './z-index'
+import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
 
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
@@ -54,8 +55,34 @@ const emit = defineEmits<{
 }>()
 
 const zIndexStore = useZIndexStore()
+const registry = usePanelRegistryStore()
 const zIndex = ref(zIndexStore.tapZIndex())
 const willChange = ref('')
+const visible = ref(true)
+let panelId = 0
+
+// 将面板提到最顶层
+function tapToTop() {
+  if (zIndex.value < zIndexStore.zIndex) {
+    zIndex.value = zIndexStore.tapZIndex()
+    registry.setActive(panelId)
+  }
+}
+
+// 关闭面板并从任务栏移除
+function close() {
+  visible.value = false
+  registry.unregister(panelId)
+  emit('close')
+}
+
+onMounted(() => {
+  panelId = registry.register({
+    title: () => props.title,
+    tapZIndex: tapToTop,
+    close,
+  })
+})
 
 // 拖动偏移量
 const panelRef = ref<HTMLElement>()
@@ -92,9 +119,7 @@ function onHeaderPointerDown(e: PointerEvent) {
   if (!el) return
 
   // 确保面板在其他面板之上
-  if (zIndex.value < zIndexStore.zIndex) {
-    zIndex.value = zIndexStore.tapZIndex()
-  }
+  tapToTop()
   willChange.value = 'transform'
 
   // 根据面板当前位置与视口尺寸，计算本次拖动的偏移范围，防止面板拖出视口
@@ -118,6 +143,7 @@ function onHeaderPointerDown(e: PointerEvent) {
 }
 
 onBeforeUnmount(() => {
+  registry.unregister(panelId)
   onPointerUp()
 })
 </script>

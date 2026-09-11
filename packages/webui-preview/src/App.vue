@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ToolPanel } from '@develon/webui-panel'
+import { ToolPanel, ToolPanelManager } from '@develon/webui-panel'
 </script>
 
 <template>
-  <h1>You did it!</h1>
   <div>
     <ToolPanel title="构建工具" class="panel">
       <div class="content">
@@ -18,6 +17,8 @@ import { ToolPanel } from '@develon/webui-panel'
         <button>调试</button>
       </div>
     </ToolPanel>
+
+    <ToolPanelManager></ToolPanelManager>
   </div>
 </template>
 

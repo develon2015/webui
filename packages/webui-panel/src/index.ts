@@ -1,9 +1,11 @@
 import type { App, ObjectPlugin } from 'vue'
 import ToolPanel from './tool-panel/ToolPanel.vue'
+import ToolPanelManager from './tool-panel-manager/ToolPanelManager.vue'
 
 // 以数组的结构保存组件，便于遍历
 const components = [
     ToolPanel,
+    ToolPanelManager,
 ]
 
 // 插件安装函数
@@ -22,4 +24,5 @@ const plugin: ObjectPlugin<any[]> = {
 export {
     plugin,
     ToolPanel,
+    ToolPanelManager,
 }
