@@ -1,43 +1,46 @@
 <template>
-  <!-- 面板根节点：v-show 控制显隐，transform 实现拖动位移，zIndex 决定面板间的层叠顺序 -->
-  <div v-show="visible" ref="panelRef" class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex, willChange }">
-    <!-- 标题栏：按住可拖动面板 -->
-    <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHeaderPointerDown">
-      <div class="header-decoration">
-        <span class="color-block block-1"></span>
-        <span class="color-block block-2"></span>
+  <Teleport to="body">
+    <!-- 面板根节点：v-show 控制显隐 -->
+    <div v-show="visible" ref="panelRef" class="panel" :style="style" v-bind="{ ...attrs, ...scoped }">
+      <!-- 标题栏：按住可拖动面板 -->
+      <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHeaderPointerDown">
+        <div class="header-decoration">
+          <span class="color-block block-1"></span>
+          <span class="color-block block-2"></span>
+        </div>
+        <!-- 面板标题 -->
+        <slot name="title">
+          <span class="panel-title">{{ title }}</span>
+        </slot>
+        <!-- 操作按钮组 -->
+        <slot name="op">
+          <div class="op-btn setting"@click="emit('setting')" v-if="btns.includes('setting')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" style="color:#fff"><defs><g id="t"><rect x="-6" y="-32" width="12" height="14" rx="2" fill="currentColor"/></g></defs><g transform="translate(50,50)"><circle r="22" fill="currentColor"/><use href="#t"/><use href="#t" transform="rotate(45)"/><use href="#t" transform="rotate(90)"/><use href="#t" transform="rotate(135)"/><use href="#t" transform="rotate(180)"/><use href="#t" transform="rotate(225)"/><use href="#t" transform="rotate(270)"/><use href="#t" transform="rotate(315)"/><circle r="12" fill="#34495e"/></g></svg>
+          </div>
+          <div class="op-btn menu" @click="emit('menu')" v-if="btns.includes('menu')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color:#fff"><defs><g id="item" fill="currentColor"><ellipse cx="2.5" cy="3.167" rx="0.833" ry="0.833"/><path d="M13.833,3.666 L5.103,3.666 A0.5,0.5 0 0,0 5.103,2.666 L13.833,2.666 Z"/></g></defs><use href="#item"/><use href="#item" transform="translate(0,4.666)"/><use href="#item" transform="translate(0,9.666)"/></svg>
+          </div>
+          <div class="op-btn min" @click="emit('min')" v-if="btns.includes('min')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color: #fff"><rect x="2.1667" y="7.6667" width="11.6667" height="1" rx="0.5" fill="currentColor"/></svg>
+          </div>
+          <div class="op-btn close" @click="close" v-if="btns.includes('close')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color: #fff"><path d="M14.1871 13.1265L13.1265 14.1872L1.81275 2.87347L2.87341 1.81281L14.1871 13.1265Z" fill="currentColor"></path><path d="M13.1265 1.81282L14.1871 2.87348L2.8734 14.1872L1.81274 13.1265L13.1265 1.81282Z" fill="currentColor"></path></svg>
+          </div>
+        </slot>
       </div>
-      <!-- 面板标题 -->
-      <slot name="title">
-        <span class="panel-title">{{ title }}</span>
-      </slot>
-      <!-- 操作按钮组 -->
-      <slot name="op">
-        <div class="op-btn setting"@click="emit('setting')" v-if="btns.includes('setting')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" style="color:#fff"><defs><g id="t"><rect x="-6" y="-32" width="12" height="14" rx="2" fill="currentColor"/></g></defs><g transform="translate(50,50)"><circle r="22" fill="currentColor"/><use href="#t"/><use href="#t" transform="rotate(45)"/><use href="#t" transform="rotate(90)"/><use href="#t" transform="rotate(135)"/><use href="#t" transform="rotate(180)"/><use href="#t" transform="rotate(225)"/><use href="#t" transform="rotate(270)"/><use href="#t" transform="rotate(315)"/><circle r="12" fill="#34495e"/></g></svg>
-        </div>
-        <div class="op-btn menu" @click="emit('menu')" v-if="btns.includes('menu')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color:#fff"><defs><g id="item" fill="currentColor"><ellipse cx="2.5" cy="3.167" rx="0.833" ry="0.833"/><path d="M13.833,3.666 L5.103,3.666 A0.5,0.5 0 0,0 5.103,2.666 L13.833,2.666 Z"/></g></defs><use href="#item"/><use href="#item" transform="translate(0,4.666)"/><use href="#item" transform="translate(0,9.666)"/></svg>
-        </div>
-        <div class="op-btn min" @click="emit('min')" v-if="btns.includes('min')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color: #fff"><rect x="2.1667" y="7.6667" width="11.6667" height="1" rx="0.5" fill="currentColor"/></svg>
-        </div>
-        <div class="op-btn close" @click="close" v-if="btns.includes('close')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color: #fff"><path d="M14.1871 13.1265L13.1265 14.1872L1.81275 2.87347L2.87341 1.81281L14.1871 13.1265Z" fill="currentColor"></path><path d="M13.1265 1.81282L14.1871 2.87348L2.8734 14.1872L1.81274 13.1265L13.1265 1.81282Z" fill="currentColor"></path></svg>
-        </div>
-      </slot>
+      <!-- 面板内容区 -->
+      <div class="panel-body">
+        <slot name="default"></slot>
+      </div>
     </div>
-    <!-- 面板内容区 -->
-    <div class="panel-body">
-      <slot name="default"></slot>
-    </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, Teleport, useAttrs } from 'vue'
 import { useZIndexStore } from './z-index'
 import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
+import { useScopedAttrs } from '@/composables/useScopedAttrs';
 
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
@@ -58,6 +61,11 @@ const emit = defineEmits<{
   close: []
   setting: []
 }>()
+
+const attrs = useAttrs()
+const scoped = useScopedAttrs()
+// 计算面板根节点的样式：根据拖动位移和 z-index 动态更新
+const style = computed(() => ({ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex: zIndex.value, willChange: willChange.value }))
 
 const zIndexStore = useZIndexStore()
 const registry = usePanelRegistryStore()
@@ -168,7 +176,7 @@ $title-color: #ffffff;
 $text-color: #c5d8f0;
 
 .panel {
-  position: relative;
+  position: fixed;
   display: inline-block;
   min-width: 240px;
   padding: 0px;
