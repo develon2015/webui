@@ -28,11 +28,13 @@
 import { onBeforeUnmount, reactive, watch } from 'vue'
 import { usePanelRegistryStore } from './panel-registry'
 
+// 面板注册表：任务栏的数据源
 const registry = usePanelRegistryStore()
 
-// 右键菜单状态
+// 右键菜单状态：是否显示、屏幕坐标、菜单指向的面板
 const menu = reactive({ visible: false, x: 0, y: 0, panelId: 0 })
 
+// 在光标位置打开某面板的右键菜单
 function openMenu(e: MouseEvent, panelId: number) {
   menu.panelId = panelId
   // 防止菜单超出视口
@@ -41,16 +43,19 @@ function openMenu(e: MouseEvent, panelId: number) {
   menu.visible = true
 }
 
+// 关闭右键菜单
 function hideMenu() {
   menu.visible = false
 }
 
+// 菜单项"关闭窗口"：关闭菜单所指向的面板
 function onCloseWindow() {
   registry.closePanel(menu.panelId)
   hideMenu()
 }
 
-// 点击任意处或再次右键时关闭菜单
+// 菜单显示期间监听全局 click / contextmenu：
+// 点击任意处或再次右键时自动关闭菜单（打开菜单的事件已 .stop，不会立即触发隐藏）
 watch(() => menu.visible, (visible) => {
   if (visible) {
     document.addEventListener('click', hideMenu)
@@ -61,17 +66,20 @@ watch(() => menu.visible, (visible) => {
   }
 })
 
+// 卸载时关闭菜单，watch 随之移除全局监听
 onBeforeUnmount(() => {
   hideMenu()
 })
 </script>
 
 <style lang="scss" scoped>
+// 任务栏：类似 Windows 状态栏，固定在视口底部
 .tool-panel-manager {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
+  // 取 int32 上限-1，始终压在所有面板之上
   z-index: 2147483646;
   display: flex;
   align-items: center;
@@ -132,6 +140,7 @@ onBeforeUnmount(() => {
   }
 }
 
+// 右键菜单：Teleport 到 body 渲染，避免受任务栏层叠上下文影响
 .context-menu {
   position: fixed;
   min-width: 140px;
@@ -140,6 +149,7 @@ onBeforeUnmount(() => {
   border: 1px solid #5A8CFF;
   border-radius: 4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  // 需盖过任务栏
   z-index: 2147483647;
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
 

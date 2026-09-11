@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "vite build",
-    "build-watch": "vite build --watch"
+    "build:watch": "vite build --watch"
   },
   "peerDependencies": {
     "pinia": "^4.0.2",

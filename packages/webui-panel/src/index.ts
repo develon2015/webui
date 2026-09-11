@@ -1,3 +1,6 @@
+/**
+ * webui-panel 组件库入口：统一注册与导出所有组件
+ */
 import type { App, ObjectPlugin } from 'vue'
 import ToolPanel from './tool-panel/ToolPanel.vue'
 import ToolPanelManager from './tool-panel-manager/ToolPanelManager.vue'
@@ -8,10 +11,11 @@ const components = [
     ToolPanelManager,
 ]
 
-// 插件安装函数
+// 插件安装函数：app.use(plugin) 后所有组件注册为全局组件
 const plugin: ObjectPlugin<any[]> = {
     install(app: App, ...options) {
         components.forEach(component => {
+            // <script setup> 组件没有显式 name，Vue 会将文件名写入 __name
             const name = component.name || component.__name
             console.log('install component:', name, options)
             if (name) {

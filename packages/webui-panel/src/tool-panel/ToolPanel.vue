@@ -1,5 +1,7 @@
 <template>
+  <!-- 面板根节点：v-show 控制显隐，transform 实现拖动位移，zIndex 决定面板间的层叠顺序 -->
   <div v-show="visible" ref="panelRef" class="panel" :style="{ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex, willChange }">
+    <!-- 标题栏：按住可拖动面板 -->
     <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHeaderPointerDown">
       <div class="header-decoration">
         <span class="color-block block-1"></span>
@@ -25,6 +27,7 @@
         </div>
       </slot>
     </div>
+    <!-- 面板内容区 -->
     <div class="panel-body">
       <slot name="default"></slot>
     </div>
@@ -38,6 +41,7 @@ import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
 
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
+// 组件属性：标题、显示哪些操作按钮、是否可拖动
 const props = withDefaults(defineProps<{
   title: string
   btns?: SideButton[]
@@ -47,6 +51,7 @@ const props = withDefaults(defineProps<{
   draggable: true,
 })
 
+// 自定义事件：对应各操作按钮的点击
 const emit = defineEmits<{
   menu: []
   min: []
@@ -56,12 +61,12 @@ const emit = defineEmits<{
 
 const zIndexStore = useZIndexStore()
 const registry = usePanelRegistryStore()
-const zIndex = ref(zIndexStore.tapZIndex())
-const willChange = ref('')
-const visible = ref(true)
-let panelId = 0
+const zIndex = ref(zIndexStore.tapZIndex()) // 初始即申请一个全局 z-index
+const willChange = ref('') // 拖动期间设为 'transform'，提示浏览器加速
+const visible = ref(true) // 面板是否可见（关闭后隐藏并退出任务栏）
+let panelId = 0 // 在注册表中分配的面板 id
 
-// 将面板提到最顶层
+// 将面板提到最顶层（已是最顶层时不再申请，避免 z-index 无谓增长）
 function tapToTop() {
   if (zIndex.value < zIndexStore.zIndex) {
     zIndex.value = zIndexStore.tapZIndex()
@@ -69,13 +74,14 @@ function tapToTop() {
   }
 }
 
-// 关闭面板并从任务栏移除
+// 关闭面板：隐藏自身、从任务栏移除，并通知父组件
 function close() {
   visible.value = false
   registry.unregister(panelId)
   emit('close')
 }
 
+// 挂载后登记到面板注册表，任务栏即可罗列本面板
 onMounted(() => {
   panelId = registry.register({
     title: () => props.title,
@@ -84,23 +90,26 @@ onMounted(() => {
   })
 })
 
-// 拖动偏移量
-const panelRef = ref<HTMLElement>()
-const offset = reactive({ x: 0, y: 0 })
-let [startX, startY, startOffsetX, startOffsetY] = [0, 0, 0, 0]
-let [minOffsetX, maxOffsetX, minOffsetY, maxOffsetY] = [0, 0, 0, 0]
-let dragging = false
+// ===== 拖动实现 =====
+const panelRef = ref<HTMLElement>() // 面板根元素
+const offset = reactive({ x: 0, y: 0 }) // 拖动累计位移
+let [startX, startY, startOffsetX, startOffsetY] = [0, 0, 0, 0] // 按下时的指针坐标与位移快照
+let [minOffsetX, maxOffsetX, minOffsetY, maxOffsetY] = [0, 0, 0, 0] // 位移边界（保证面板不出视口）
+let dragging = false // 是否正在拖动
 
+// 将数值限制在 [min, max] 区间内
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
+// 拖动中：按指针位移更新面板偏移，并钳制在视口边界内
 function onPointerMove(e: PointerEvent) {
   if (!dragging) return
   offset.x = clamp(startOffsetX + (e.clientX - startX), minOffsetX, maxOffsetX)
   offset.y = clamp(startOffsetY + (e.clientY - startY), minOffsetY, maxOffsetY)
 }
 
+// 结束拖动：还原状态并移除全局事件监听
 function onPointerUp() {
   dragging = false
   willChange.value = ''
@@ -110,8 +119,10 @@ function onPointerUp() {
   document.body.style.userSelect = ''
 }
 
+// 按下标题栏开始拖动（Pointer Events 同时兼容鼠标与触摸）
 function onHeaderPointerDown(e: PointerEvent) {
   if (!props.draggable) return
+  // 起点落在操作按钮上时不触发拖动
   const target = e.target as HTMLElement
   if (target.closest('.op-btn')) return
 
@@ -136,12 +147,14 @@ function onHeaderPointerDown(e: PointerEvent) {
 
   dragging = true
   ;[startX, startY, startOffsetX, startOffsetY] = [e.clientX, e.clientY, offset.x, offset.y]
+  // 拖动期间禁止选中文本；监听挂到 document 上，指针移出面板也能继续拖动
   document.body.style.userSelect = 'none'
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
   document.addEventListener('pointercancel', onPointerUp)
 }
 
+// 卸载前清理：从任务栏注销 + 移除拖动事件监听
 onBeforeUnmount(() => {
   registry.unregister(panelId)
   onPointerUp()
@@ -186,6 +199,7 @@ $text-color: #c5d8f0;
 
     &.is-draggable {
       cursor: grab;
+      // 禁用触摸滚动等默认手势，避免移动端拖动被浏览器接管（触发 pointercancel）而中断
       touch-action: none;
     }
 
