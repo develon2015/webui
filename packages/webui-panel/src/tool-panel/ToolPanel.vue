@@ -1,12 +1,20 @@
 <template>
   <Teleport to="body">
-    <!-- 面板根节点：v-show 控制显隐 -->
-    <div v-show="visible" ref="panelRef" class="panel" :style="style" v-bind="{ ...attrs, ...scoped }">
+    <!-- 面板根节点：v-show 控制显隐（关闭或最小化时隐藏） -->
+    <div v-show="visible && !minimized" ref="panelRef" class="panel" :style="style" v-bind="{ ...attrs, ...scoped }">
       <!-- 标题栏：按住可拖动面板 -->
       <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHeaderPointerDown">
         <div class="header-decoration">
-          <span class="color-block block-1"></span>
-          <span class="color-block block-2"></span>
+          <!-- 图标：默认色块；可通过 icon prop（内联 svg / 图片地址 / emoji 文本）或 #icon 插槽自定义，任务栏同步显示 -->
+          <slot name="icon">
+            <img v-if="iconType === 'img'" class="panel-icon is-img" :src="icon" alt="" draggable="false">
+            <span v-else-if="iconType === 'svg'" class="panel-icon is-svg" v-html="icon"></span>
+            <span v-else-if="icon" class="panel-icon is-text">{{ icon }}</span>
+            <template v-else>
+              <span class="color-block block-1"></span>
+              <span class="color-block block-2"></span>
+            </template>
+          </slot>
         </div>
         <!-- 面板标题 -->
         <slot name="title">
@@ -20,7 +28,7 @@
           <div class="op-btn menu" @click="emit('menu')" v-if="btns.includes('menu')">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color:#fff"><defs><g id="item" fill="currentColor"><ellipse cx="2.5" cy="3.167" rx="0.833" ry="0.833"/><path d="M13.833,3.666 L5.103,3.666 A0.5,0.5 0 0,0 5.103,2.666 L13.833,2.666 Z"/></g></defs><use href="#item"/><use href="#item" transform="translate(0,4.666)"/><use href="#item" transform="translate(0,9.666)"/></svg>
           </div>
-          <div class="op-btn min" @click="emit('min')" v-if="btns.includes('min')">
+          <div class="op-btn min" @click="minimize" v-if="btns.includes('min')">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="color: #fff"><rect x="2.1667" y="7.6667" width="11.6667" height="1" rx="0.5" fill="currentColor"/></svg>
           </div>
           <div class="op-btn close" @click="close" v-if="btns.includes('close')">
@@ -40,18 +48,22 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, Teleport, useAttrs } from 'vue'
 import { useZIndexStore } from './z-index'
 import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
+import { resolvePanelIconType } from './icon'
 import { useScopedAttrs } from '@/composables/useScopedAttrs';
 
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
-// 组件属性：标题、显示哪些操作按钮、是否可拖动
+// 组件属性：标题、显示哪些操作按钮、是否可拖动、面板图标
 const props = withDefaults(defineProps<{
   title: string
   btns?: SideButton[]
   draggable?: boolean
+  /** 面板图标：内联 svg 字符串 / 图片地址（http、data、相对路径等）/ emoji 等文本；为空时显示默认色块，任务栏同步显示。内联 svg 通过 v-html 渲染，请勿传入不可信内容 */
+  icon?: string
 }>(), {
   btns: () => ['setting', 'menu', 'min', 'close'],
   draggable: true,
+  icon: '',
 })
 
 // 自定义事件：对应各操作按钮的点击
@@ -66,12 +78,15 @@ const attrs = useAttrs()
 const scoped = useScopedAttrs()
 // 计算面板根节点的样式：根据拖动位移和 z-index 动态更新
 const style = computed(() => ({ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex: zIndex.value, willChange: willChange.value }))
+// 图标渲染类型：内联 svg / 图片地址 / 文本
+const iconType = computed(() => resolvePanelIconType(props.icon))
 
 const zIndexStore = useZIndexStore()
 const registry = usePanelRegistryStore()
 const zIndex = ref(zIndexStore.tapZIndex()) // 初始即申请一个全局 z-index
 const willChange = ref('') // 拖动期间设为 'transform'，提示浏览器加速
 const visible = ref(true) // 面板是否可见（关闭后隐藏并退出任务栏）
+const minimized = ref(false) // 是否处于最小化状态（隐藏面板，但保留在任务栏）
 let panelId = 0 // 在注册表中分配的面板 id
 
 // 将面板提到最顶层（已是最顶层时不再申请，避免 z-index 无谓增长）
@@ -89,11 +104,28 @@ function close() {
   emit('close')
 }
 
+// 最小化面板：隐藏自身但保留在任务栏，可通过任务栏点击或右键菜单还原
+function minimize() {
+  minimized.value = true
+  emit('min')
+}
+
+// 还原面板：取消最小化并置顶
+function restore() {
+  minimized.value = false
+  zIndex.value = zIndexStore.tapZIndex()
+  registry.setActive(panelId)
+}
+
 // 挂载后登记到面板注册表，任务栏即可罗列本面板
 onMounted(() => {
   panelId = registry.register({
     title: () => props.title,
+    icon: () => props.icon,
+    minimized: () => minimized.value,
     tapZIndex: tapToTop,
+    minimize,
+    restore,
     close,
   })
 })
@@ -167,6 +199,9 @@ onBeforeUnmount(() => {
   registry.unregister(panelId)
   onPointerUp()
 })
+
+// 暴露实例方法：父组件可通过模板 ref 手动最小化 / 还原 / 关闭
+defineExpose({ minimize, restore, close })
 </script>
 
 <style lang="scss" scoped>
@@ -216,6 +251,40 @@ $text-color: #c5d8f0;
       align-items: center;
       gap: 4px;
       margin-right: 10px;
+
+      // 自定义图标（icon prop / #icon 插槽）
+      .panel-icon {
+        height: 18px;
+        flex-shrink: 0;
+        color: #fff;
+
+        // 图片地址图标
+        &.is-img {
+          display: block;
+          width: 18px;
+          object-fit: contain;
+        }
+
+        // 内联 svg 图标
+        &.is-svg {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+
+          :deep(svg) {
+            width: 100%;
+            height: 100%;
+          }
+        }
+
+        // 文本 / emoji 图标
+        &.is-text {
+          display: inline-block;
+          font-size: 15px;
+          line-height: 18px;
+        }
+      }
 
       .color-block {
         width: 7px;

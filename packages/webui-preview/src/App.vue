@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { ToolPanel, ToolPanelManager } from '@develon/webui-panel'
+import buildIcon from '@/assets/icons/build.svg'
+import debugIcon from '@/assets/icons/debug.svg'
 </script>
 
 <template>
   <div>
-    <ToolPanel title="构建工具" class="panel">
+    <ToolPanel :icon="buildIcon" title="构建工具" class="panel">
       <div class="content">
         <button>构建</button>
         <button>清理</button>
       </div>
     </ToolPanel>
 
-    <ToolPanel title="测试工具" class="panel">
+    <ToolPanel :icon="debugIcon" title="测试工具" class="panel">
       <div class="content">
         <button>测试</button>
         <button>调试</button>

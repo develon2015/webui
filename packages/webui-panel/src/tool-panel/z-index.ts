@@ -5,7 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-export const useZIndexStore = defineStore("z-index", () => {
+export const useZIndexStore = defineStore("tool-panel-z-index", () => {
     // 当前全局最大 z-index
     const zIndex = ref(0)
 

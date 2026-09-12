@@ -11,13 +11,21 @@ export interface PanelEntry {
     id: number
     /** 返回面板标题（getter 形式，读取时仍保持响应式） */
     title: () => string
+    /** 返回面板图标（getter 形式；空字符串表示使用默认色块图标） */
+    icon: () => string
+    /** 返回面板是否处于最小化状态 */
+    minimized: () => boolean
     /** 将面板置顶 */
     tapZIndex: () => void
+    /** 最小化面板 */
+    minimize: () => void
+    /** 还原面板（取消最小化并置顶） */
+    restore: () => void
     /** 关闭面板 */
     close: () => void
 }
 
-export const usePanelRegistryStore = defineStore('panel-registry', () => {
+export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
     // 面板 id 发号器
     let nextId = 1
     // 当前置顶面板的 id，0 表示暂无
@@ -57,5 +65,15 @@ export const usePanelRegistryStore = defineStore('panel-registry', () => {
         panels.value.find(panel => panel.id === id)?.close()
     }
 
-    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel }
+    /** 最小化指定面板（任务栏点击激活面板或右键菜单"最小化窗口"时调用） */
+    function minimizePanel(id: number) {
+        panels.value.find(panel => panel.id === id)?.minimize()
+    }
+
+    /** 还原指定面板（任务栏点击已最小化面板或右键菜单"还原窗口"时调用） */
+    function restorePanel(id: number) {
+        panels.value.find(panel => panel.id === id)?.restore()
+    }
+
+    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel }
 })
