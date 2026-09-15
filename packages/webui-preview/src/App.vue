@@ -27,6 +27,9 @@ import debugIcon from '@/assets/icons/debug.svg'
 <style scoped lang="scss">
 .panel {
   width: 400px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 
   .content {
     display: flex;

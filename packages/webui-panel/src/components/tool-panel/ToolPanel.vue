@@ -3,7 +3,7 @@
     <!-- 面板根节点：v-show 控制显隐（关闭或最小化时隐藏） -->
     <div v-show="visible && !minimized" ref="panelRef" class="panel" :style="style" v-bind="{ ...attrs, ...scoped }">
       <!-- 标题栏：按住可拖动面板 -->
-      <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHeaderPointerDown">
+      <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHandlePointerDown">
         <div class="header-decoration">
           <!-- 图标：默认色块；可通过 icon prop（内联 svg / 图片地址 / emoji 文本）或 #icon 插槽自定义，任务栏同步显示 -->
           <slot name="icon">
@@ -80,16 +80,16 @@ const scoped = useScopedAttrs()
 
 // 面板根元素
 const panelRef = ref<HTMLElement>()
-// 拖动实现：按住标题栏拖动面板，指针位移换算为面板偏移并钳制在视口内（细节见 useDragMove）
-const { offset, willChange, onHandlePointerDown: onHeaderPointerDown } = useDragMove({
+// 拖动实现：按住标题栏拖动面板，位移样式（含外部 transform 合并）由 useDragMove 提供
+const { style: dragStyle, onHandlePointerDown } = useDragMove({
   target: panelRef,
   enabled: () => props.draggable,
   ignore: e => !!(e.target as HTMLElement).closest('.op-btn'),
   onDragStart: tapToTop,
 })
 
-// 计算面板根节点的样式：根据拖动位移和 z-index 动态更新
-const style = computed(() => ({ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex: zIndex.value, willChange: willChange.value }))
+// 计算面板根节点的样式：拖动位移样式 + 全局 z-index 动态更新
+const style = computed(() => ({ ...dragStyle.value, zIndex: zIndex.value }))
 // 图标渲染类型：内联 svg / 图片地址 / 文本
 const iconType = computed(() => resolvePanelIconType(props.icon))
 
