@@ -2,8 +2,8 @@
  * webui-panel 组件库入口：统一注册与导出所有组件
  */
 import type { App, ObjectPlugin } from 'vue'
-import ToolPanel from './tool-panel/ToolPanel.vue'
-import ToolPanelManager from './tool-panel-manager/ToolPanelManager.vue'
+import ToolPanel from './components/tool-panel/ToolPanel.vue'
+import ToolPanelManager from './components/tool-panel-manager/ToolPanelManager.vue'
 
 // 以数组的结构保存组件，便于遍历
 const components = [

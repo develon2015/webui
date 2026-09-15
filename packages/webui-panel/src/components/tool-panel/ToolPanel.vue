@@ -45,11 +45,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, Teleport, useAttrs } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, Teleport, useAttrs } from 'vue'
 import { useZIndexStore } from './z-index'
 import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
 import { resolvePanelIconType } from './icon'
 import { useScopedAttrs } from '@/composables/useScopedAttrs';
+import { useDragMove } from '@/composables/useDragMove'
 
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
@@ -76,6 +77,17 @@ const emit = defineEmits<{
 
 const attrs = useAttrs()
 const scoped = useScopedAttrs()
+
+// 面板根元素
+const panelRef = ref<HTMLElement>()
+// 拖动实现：按住标题栏拖动面板，指针位移换算为面板偏移并钳制在视口内（细节见 useDragMove）
+const { offset, willChange, onHandlePointerDown: onHeaderPointerDown } = useDragMove({
+  target: panelRef,
+  enabled: () => props.draggable,
+  ignore: e => !!(e.target as HTMLElement).closest('.op-btn'),
+  onDragStart: tapToTop,
+})
+
 // 计算面板根节点的样式：根据拖动位移和 z-index 动态更新
 const style = computed(() => ({ transform: `translate(${offset.x}px, ${offset.y}px)`, zIndex: zIndex.value, willChange: willChange.value }))
 // 图标渲染类型：内联 svg / 图片地址 / 文本
@@ -84,7 +96,6 @@ const iconType = computed(() => resolvePanelIconType(props.icon))
 const zIndexStore = useZIndexStore()
 const registry = usePanelRegistryStore()
 const zIndex = ref(zIndexStore.tapZIndex()) // 初始即申请一个全局 z-index
-const willChange = ref('') // 拖动期间设为 'transform'，提示浏览器加速
 const visible = ref(true) // 面板是否可见（关闭后隐藏并退出任务栏）
 const minimized = ref(false) // 是否处于最小化状态（隐藏面板，但保留在任务栏）
 let panelId = 0 // 在注册表中分配的面板 id
@@ -130,74 +141,9 @@ onMounted(() => {
   })
 })
 
-// ===== 拖动实现 =====
-const panelRef = ref<HTMLElement>() // 面板根元素
-const offset = reactive({ x: 0, y: 0 }) // 拖动累计位移
-let [startX, startY, startOffsetX, startOffsetY] = [0, 0, 0, 0] // 按下时的指针坐标与位移快照
-let [minOffsetX, maxOffsetX, minOffsetY, maxOffsetY] = [0, 0, 0, 0] // 位移边界（保证面板不出视口）
-let dragging = false // 是否正在拖动
-
-// 将数值限制在 [min, max] 区间内
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max)
-}
-
-// 拖动中：按指针位移更新面板偏移，并钳制在视口边界内
-function onPointerMove(e: PointerEvent) {
-  if (!dragging) return
-  offset.x = clamp(startOffsetX + (e.clientX - startX), minOffsetX, maxOffsetX)
-  offset.y = clamp(startOffsetY + (e.clientY - startY), minOffsetY, maxOffsetY)
-}
-
-// 结束拖动：还原状态并移除全局事件监听
-function onPointerUp() {
-  dragging = false
-  willChange.value = ''
-  document.removeEventListener('pointermove', onPointerMove)
-  document.removeEventListener('pointerup', onPointerUp)
-  document.removeEventListener('pointercancel', onPointerUp)
-  document.body.style.userSelect = ''
-}
-
-// 按下标题栏开始拖动（Pointer Events 同时兼容鼠标与触摸）
-function onHeaderPointerDown(e: PointerEvent) {
-  if (!props.draggable) return
-  // 起点落在操作按钮上时不触发拖动
-  const target = e.target as HTMLElement
-  if (target.closest('.op-btn')) return
-
-  const el = panelRef.value
-  if (!el) return
-
-  // 确保面板在其他面板之上
-  tapToTop()
-  willChange.value = 'transform'
-
-  // 根据面板当前位置与视口尺寸，计算本次拖动的偏移范围，防止面板拖出视口
-  const rect = el.getBoundingClientRect()
-  const baseLeft = rect.left - offset.x
-  const baseTop = rect.top - offset.y
-  minOffsetX = -baseLeft
-  maxOffsetX = window.innerWidth - rect.width - baseLeft
-  minOffsetY = -baseTop
-  maxOffsetY = window.innerHeight - rect.height - baseTop
-  // 面板尺寸超出视口时，取值区间会倒置，统一交换保证 clamp 有效
-  ;[minOffsetX, maxOffsetX] = [Math.min(minOffsetX, maxOffsetX), Math.max(minOffsetX, maxOffsetX)]
-  ;[minOffsetY, maxOffsetY] = [Math.min(minOffsetY, maxOffsetY), Math.max(minOffsetY, maxOffsetY)]
-
-  dragging = true
-  ;[startX, startY, startOffsetX, startOffsetY] = [e.clientX, e.clientY, offset.x, offset.y]
-  // 拖动期间禁止选中文本；监听挂到 document 上，指针移出面板也能继续拖动
-  document.body.style.userSelect = 'none'
-  document.addEventListener('pointermove', onPointerMove)
-  document.addEventListener('pointerup', onPointerUp)
-  document.addEventListener('pointercancel', onPointerUp)
-}
-
-// 卸载前清理：从任务栏注销 + 移除拖动事件监听
+// 卸载前清理：从任务栏注销（拖动事件监听由 useDragMove 自行清理）
 onBeforeUnmount(() => {
   registry.unregister(panelId)
-  onPointerUp()
 })
 
 // 暴露实例方法：父组件可通过模板 ref 手动最小化 / 还原 / 关闭
