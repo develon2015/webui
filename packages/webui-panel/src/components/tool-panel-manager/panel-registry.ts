@@ -17,6 +17,8 @@ export interface PanelEntry {
     minimized: () => boolean
     /** 将面板置顶 */
     tapZIndex: () => void
+    /** 高亮显示面板 */
+    highlight: (value: boolean) => void
     /** 最小化面板 */
     minimize: () => void
     /** 还原面板（取消最小化并置顶） */
@@ -38,7 +40,7 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         const id = nextId++
         panels.value.push({ ...entry, id })
         // 后注册的面板初始 z-index 更高，视为置顶
-        activeId.value = id
+        setActive(id)
         return id
     }
 
@@ -52,6 +54,10 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
 
     /** 标记置顶面板（由面板自身置顶时回调） */
     function setActive(id: number) {
+        // 取消高亮之前置顶的面板
+        panels.value.find(panel => panel.id === activeId.value)?.highlight(false)
+        // 高亮显示最新置顶的面板
+        panels.value.find(panel => panel.id === id)?.highlight(true)
         activeId.value = id
     }
 

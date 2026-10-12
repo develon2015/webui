@@ -108,6 +108,14 @@ function tapToTop() {
   }
 }
 
+function highlight(value: boolean) {
+  if (value) {
+    panelRef.value?.classList.add('active')
+  } else {
+    panelRef.value?.classList.remove('active')
+  }
+}
+
 // 关闭面板：隐藏自身、从任务栏移除，并通知父组件
 function close() {
   visible.value = false
@@ -135,6 +143,7 @@ onMounted(() => {
     icon: () => props.icon,
     minimized: () => minimized.value,
     tapZIndex: tapToTop,
+    highlight,
     minimize,
     restore,
     close,
@@ -152,7 +161,7 @@ defineExpose({ minimize, restore, close })
 
 <style lang="scss" scoped>
 $panel-bg: linear-gradient(180deg, #071d40e6 2%, #04255ee6 100%);
-$panel-border: #5A8CFF;
+$panel-outline: #1de9ea;;
 $title-color: #ffffff;
 $text-color: #c5d8f0;
 
@@ -162,13 +171,18 @@ $text-color: #c5d8f0;
   min-width: 240px;
   padding: 0px;
   background: $panel-bg;
-  border: 2px solid $panel-border;
   border-radius: 4px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
   backdrop-filter: blur(4px);
   color: $text-color;
+
+  &.active {
+    outline: 1px solid $panel-outline;
+    outline-offset: 0px;
+    transition: outline-color .5s ease, box-shadow .5s ease;
+  }
 
   .panel-header {
     position: relative;
