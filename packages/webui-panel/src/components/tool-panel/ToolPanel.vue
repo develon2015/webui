@@ -160,10 +160,11 @@ defineExpose({ minimize, restore, close })
 </script>
 
 <style lang="scss" scoped>
-$panel-bg: linear-gradient(180deg, #071d40e6 2%, #04255ee6 100%);
-$panel-outline: #1de9ea;;
+// 暗黑主题配色：绝对黑底 + 明亮高对比
+$panel-bg: #000000;
+$panel-outline: #ffffff;
 $title-color: #ffffff;
-$text-color: #c5d8f0;
+$text-color: #d4d4d4;
 
 .panel {
   position: fixed;
@@ -172,10 +173,9 @@ $text-color: #c5d8f0;
   padding: 0px;
   background: $panel-bg;
   border-radius: 4px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
   overflow: hidden;
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
-  backdrop-filter: blur(4px);
   color: $text-color;
 
   &.active {
@@ -191,13 +191,8 @@ $text-color: #c5d8f0;
     gap: 2px;
     height: 42px;
     padding: 0 12px;
-    border-bottom: 1px solid rgba(41, 173, 255, 0.25);
-    border-image: linear-gradient(270deg, #c7edff00 0%, #c7edff66 15%, #c7edff 47%, #c7edff 82%, #c7edff00 100%) 1;
-    background:
-      linear-gradient(90deg, rgba(41, 173, 255, 0.15) 0%, transparent 100%),
-      url(./header-bottom-light.png) no-repeat 40px bottom;
-    background-size: auto, 125px 10px;
-    mix-blend-mode: plus-lighter;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    border-image: linear-gradient(270deg, #ffffff00 0%, #ffffff40 15%, #ffffff99 47%, #ffffff99 82%, #ffffff00 100%) 1;
     user-select: none;
 
     &.is-draggable {
@@ -253,13 +248,13 @@ $text-color: #c5d8f0;
         transform: skewX(-18deg);
 
         &.block-1 {
-          background: linear-gradient(180deg, #61d8ff 0%, #29adff 100%);
-          box-shadow: 0 1px 4px rgba(2, 214, 254, 0.5);
+          background: linear-gradient(180deg, #ffffff 0%, #9e9e9e 100%);
+          box-shadow: 0 1px 4px rgba(255, 255, 255, 0.45);
         }
 
         &.block-2 {
-          background: linear-gradient(180deg, #1de9ea 0%, #b7ffff 100%);
-          box-shadow: 0 1px 4px rgba(0, 255, 255, 0.5);
+          background: linear-gradient(180deg, #ffffff 0%, #cfcfcf 100%);
+          box-shadow: 0 1px 4px rgba(255, 255, 255, 0.35);
         }
       }
     }
@@ -284,9 +279,8 @@ $text-color: #c5d8f0;
       justify-content: center;
 
       &:hover {
-        background: rgba(255, 71, 87, 0.2);
-        border-color: #ff4757;
-        color: #ff4757;
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
         cursor: pointer;
       }
     }

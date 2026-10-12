@@ -124,9 +124,8 @@ onBeforeUnmount(() => {
   gap: 6px;
   height: 40px;
   padding: 0 8px;
-  background: linear-gradient(180deg, #071d40f2 2%, #04255ef2 100%);
-  border-top: 1px solid rgba(90, 140, 255, 0.45);
-  backdrop-filter: blur(4px);
+  background: #000000;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
 
   .taskbar-item {
@@ -136,21 +135,21 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(41, 173, 255, 0.12);
-    border: 1px solid rgba(90, 140, 255, 0.35);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
     font-size: 12px;
-    color: #c5d8f0;
+    color: #d4d4d4;
     cursor: pointer;
     user-select: none;
     transition: background 0.15s;
 
     &:hover {
-      background: rgba(41, 173, 255, 0.25);
+      background: rgba(255, 255, 255, 0.16);
     }
 
     &.active {
-      background: rgba(41, 173, 255, 0.35);
+      background: rgba(255, 255, 255, 0.28);
       color: #fff;
     }
 
@@ -202,11 +201,11 @@ onBeforeUnmount(() => {
       flex-shrink: 0;
 
       &.block-1 {
-        background: linear-gradient(180deg, #61d8ff 0%, #29adff 100%);
+        background: linear-gradient(180deg, #ffffff 0%, #9e9e9e 100%);
       }
 
       &.block-2 {
-        background: linear-gradient(180deg, #1de9ea 0%, #b7ffff 100%);
+        background: linear-gradient(180deg, #ffffff 0%, #cfcfcf 100%);
       }
     }
 
@@ -227,10 +226,10 @@ onBeforeUnmount(() => {
   position: fixed;
   min-width: 140px;
   padding: 4px;
-  background: #0a2450f2;
-  border: 1px solid #5A8CFF;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
   // 需盖过任务栏
   z-index: 2147483647;
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
@@ -239,12 +238,12 @@ onBeforeUnmount(() => {
     padding: 6px 12px;
     border-radius: 3px;
     font-size: 13px;
-    color: #c5d8f0;
+    color: #d4d4d4;
     cursor: pointer;
     user-select: none;
 
     &:hover {
-      background: rgba(41, 173, 255, 0.3);
+      background: rgba(255, 255, 255, 0.16);
       color: #fff;
     }
   }
