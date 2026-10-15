@@ -247,8 +247,8 @@ onBeforeUnmount(() => {
     }
 
     .color-block {
-      width: 7px;
-      height: 12px;
+      width: 5px;
+      height: 10px;
       border-radius: 2px;
       transform: skewX(-18deg);
       flex-shrink: 0;

@@ -6,6 +6,10 @@ import debugIcon from '@/assets/icons/debug.svg'
 
 <template>
   <div>
+    <ToolPanel title="窗口管理" style="width: 50%; height: 300px;">
+      <ToolPanelManager theme="sci-fi"></ToolPanelManager>
+    </ToolPanel>
+
     <ToolPanel theme="sci-fi" :icon="buildIcon" title="构建工具" class="panel">
       <div class="content">
         <button>构建</button>
