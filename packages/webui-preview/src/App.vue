@@ -21,6 +21,7 @@ import debugIcon from '@/assets/icons/debug.svg'
     </ToolPanel>
 
     <ToolPanelManager theme="dark"></ToolPanelManager>
+    <ToolPanelManager theme="dark" mode="vertical" class="panel-manager"></ToolPanelManager>
   </div>
 </template>
 
@@ -36,5 +37,9 @@ import debugIcon from '@/assets/icons/debug.svg'
     flex-direction: column;
     gap: 8px;
   }
+}
+
+.panel-manager {
+  height: calc(100vh - 41px - 16px) !important;
 }
 </style>

@@ -11,7 +11,9 @@ const components = [
     ToolPanelManager,
 ]
 
-// 插件安装函数：app.use(plugin) 后所有组件注册为全局组件
+/**
+ * 插件安装函数：app.use(plugin) 后所有组件注册为全局组件
+ */
 const plugin: ObjectPlugin<any[]> = {
     install(app: App, ...options) {
         components.forEach(component => {

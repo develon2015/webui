@@ -1,6 +1,6 @@
 <template>
-  <!-- 主题类名切换任务栏配色变量 -->
-  <div class="tool-panel-manager" :class="`theme-${theme}`">
+  <!-- 主题类名切换任务栏配色变量；vertical 类切换为竖排布局 -->
+  <div class="tool-panel-manager" :class="[`theme-${theme}`, { vertical: mode === 'vertical' }]">
     <!-- 任务栏：罗列所有面板实例 -->
     <div
       v-for="panel in registry.panels"
@@ -39,12 +39,15 @@ import { onBeforeUnmount, reactive, watch } from 'vue'
 import { usePanelRegistryStore, type PanelEntry } from './panel-registry'
 import { resolvePanelIconType } from '../tool-panel/icon'
 
-// 组件属性：theme 决定任务栏与右键菜单配色
+// 组件属性：theme 决定任务栏与右键菜单配色，mode 决定任务栏布局方向
 const props = withDefaults(defineProps<{
   /** 主题：'dark' 绝对黑暗黑风格（默认）；'sci-fi' 蓝色科幻风格 */
   theme?: 'dark' | 'sci-fi'
+  /** 布局方向：'horizontal' 底部横向任务栏（默认）；'vertical' 左侧竖向任务栏 */
+  mode?: 'horizontal' | 'vertical'
 }>(), {
   theme: 'dark',
+  mode: 'horizontal',
 })
 
 // 面板注册表：任务栏的数据源
@@ -125,7 +128,7 @@ onBeforeUnmount(() => {
 // 默认：暗黑主题（绝对黑底 + 明亮高对比）；.theme-sci-fi 覆盖为蓝色科幻配色
 .tool-panel-manager {
   --bar-bg: #000000;
-  --bar-border-top: rgba(255, 255, 255, 0.16);
+  --bar-border-color: rgba(255, 255, 255, 0.16);
   --item-bg: transparent;
   --item-border: rgba(255, 255, 255, 0.2);
   --item-color: #d4d4d4;
@@ -137,7 +140,7 @@ onBeforeUnmount(() => {
   // 蓝色科幻主题
   &.theme-sci-fi {
     --bar-bg: linear-gradient(180deg, #071d40f2 2%, #04255ef2 100%);
-    --bar-border-top: rgba(90, 140, 255, 0.45);
+    --bar-border-color: rgba(90, 140, 255, 0.45);
     --item-bg: rgba(41, 173, 255, 0.12);
     --item-border: rgba(90, 140, 255, 0.35);
     --item-color: #c5d8f0;
@@ -159,8 +162,24 @@ onBeforeUnmount(() => {
   height: 40px;
   padding: 0 8px;
   background: var(--bar-bg);
-  border-top: 1px solid var(--bar-border-top);
+  border-top: 1px solid var(--bar-border-color);
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+
+  // 竖排模式：停靠在视口左侧，任务项自上而下排列
+  &.vertical {
+    flex-direction: column;
+    align-items: stretch;
+    right: auto;
+    top: 0;
+    width: fit-content;
+    min-width: 56px;
+    max-width: 168px;
+    height: auto;
+    padding: 8px 0;
+    border-top: none;
+    border-right: 1px solid var(--bar-border-color);
+    overflow-y: auto;
+  }
 
   .taskbar-item {
     height: 30px;
