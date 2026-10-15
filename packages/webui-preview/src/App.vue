@@ -6,21 +6,21 @@ import debugIcon from '@/assets/icons/debug.svg'
 
 <template>
   <div>
-    <ToolPanel :icon="buildIcon" title="构建工具" class="panel">
+    <ToolPanel theme="sci-fi" :icon="buildIcon" title="构建工具" class="panel">
       <div class="content">
         <button>构建</button>
         <button>清理</button>
       </div>
     </ToolPanel>
 
-    <ToolPanel :icon="debugIcon" title="测试工具" class="panel">
+    <ToolPanel theme="dark" :icon="debugIcon" title="测试工具" class="panel">
       <div class="content">
         <button>测试</button>
         <button>调试</button>
       </div>
     </ToolPanel>
 
-    <ToolPanelManager></ToolPanelManager>
+    <ToolPanelManager theme="dark"></ToolPanelManager>
   </div>
 </template>
 
