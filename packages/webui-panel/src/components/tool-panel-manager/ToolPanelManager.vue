@@ -28,6 +28,7 @@
         <!-- 菜单项随面板最小化状态切换：最小化窗口 / 还原窗口 -->
         <div v-if="isMenuPanelMinimized()" class="menu-item" @click="onRestoreWindow">还原窗口</div>
         <div v-else class="menu-item" @click="onMinimizeWindow">最小化窗口</div>
+        <div class="menu-item" @click="onCenterWindow">居中显示</div>
         <div class="menu-item" @click="onCloseWindow">关闭窗口</div>
       </div>
     </Teleport>
@@ -98,6 +99,12 @@ function onMinimizeWindow() {
 // 菜单项"还原窗口"：还原菜单所指向的面板
 function onRestoreWindow() {
   registry.restorePanel(menu.panelId)
+  hideMenu()
+}
+
+// 菜单项"居中显示"：将菜单所指向的面板移动到视口中心并置顶
+function onCenterWindow() {
+  registry.centerPanel(menu.panelId)
   hideMenu()
 }
 

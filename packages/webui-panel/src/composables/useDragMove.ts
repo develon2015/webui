@@ -115,8 +115,24 @@ export function useDragMove(options: UseDragMoveOptions) {
     document.addEventListener('pointercancel', onPointerUp)
   }
 
+  // 将元素移动到视口中心（叠加到当前拖动偏移上）
+  // 通过位移增量而非 left/top 百分比实现：拖动位移是屏幕空间平移，
+  // 因此外部无论是什么 transform（translate(-50%,-50%) / scale / rotate）都能精确居中
+  function center() {
+    const el = options.target.value
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    // 元素尚未渲染（如仍处于最小化隐藏状态）时跳过
+    if (rect.width === 0 && rect.height === 0) return
+    // 居中位移以内联 transform 输出，需先快照外部 transform
+    externalTransform.value = captureExternalTransform(el)
+    hasDragged.value = true
+    offset.x += (window.innerWidth - rect.width) / 2 - rect.left
+    offset.y += (window.innerHeight - rect.height) / 2 - rect.top
+  }
+
   // 卸载前移除拖动事件监听
   onBeforeUnmount(onPointerUp)
 
-  return { style, onHandlePointerDown }
+  return { style, onHandlePointerDown, center }
 }

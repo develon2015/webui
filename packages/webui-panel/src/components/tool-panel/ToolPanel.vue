@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, Teleport, useAttrs } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, Teleport, useAttrs } from 'vue'
 import { useZIndexStore } from './z-index'
 import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
 import { resolvePanelIconType } from './icon'
@@ -83,8 +83,9 @@ const scoped = useScopedAttrs()
 
 // 面板根元素
 const panelRef = ref<HTMLElement>()
-// 拖动实现：按住标题栏拖动面板，位移样式（含外部 transform 合并）由 useDragMove 提供
-const { style: dragStyle, onHandlePointerDown } = useDragMove({
+// 拖动实现：按住标题栏拖动面板，位移样式（含外部 transform 合并）由 useDragMove 提供；
+// center 用于将面板移动到视口中心（与拖动偏移共用同一套位移状态）
+const { style: dragStyle, onHandlePointerDown, center: dragCenter } = useDragMove({
   target: panelRef,
   enabled: () => props.draggable,
   ignore: e => !!(e.target as HTMLElement).closest('.op-btn'),
@@ -139,6 +140,16 @@ function restore() {
   registry.setActive(panelId)
 }
 
+// 居中面板：取消最小化、移动到视口中心并置顶
+async function center() {
+  if (minimized.value) minimized.value = false
+  zIndex.value = zIndexStore.tapZIndex()
+  registry.setActive(panelId)
+  // 等最小化状态渲染完成后，useDragMove 才能读到面板的有效矩形
+  await nextTick()
+  dragCenter()
+}
+
 // 挂载后登记到面板注册表，任务栏即可罗列本面板
 onMounted(() => {
   panelId = registry.register({
@@ -149,6 +160,7 @@ onMounted(() => {
     highlight,
     minimize,
     restore,
+    center,
     close,
   })
 })
@@ -158,8 +170,8 @@ onBeforeUnmount(() => {
   registry.unregister(panelId)
 })
 
-// 暴露实例方法：父组件可通过模板 ref 手动最小化 / 还原 / 关闭
-defineExpose({ minimize, restore, close })
+// 暴露实例方法：父组件可通过模板 ref 手动最小化 / 还原 / 居中 / 关闭
+defineExpose({ minimize, restore, center, close })
 </script>
 
 <style lang="scss" scoped>
@@ -211,7 +223,7 @@ defineExpose({ minimize, restore, close })
   padding: 0px;
   background: var(--panel-bg);
   border-radius: 4px;
-  box-shadow: 0 8px 32px var(--panel-shadow);
+  box-shadow: 0 0px 16px var(--panel-shadow);
   overflow: hidden;
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
   backdrop-filter: var(--panel-backdrop);

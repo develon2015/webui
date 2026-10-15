@@ -23,6 +23,8 @@ export interface PanelEntry {
     minimize: () => void
     /** 还原面板（取消最小化并置顶） */
     restore: () => void
+    /** 将面板移动到视口中心并置顶 */
+    center: () => void
     /** 关闭面板 */
     close: () => void
 }
@@ -81,5 +83,10 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         panels.value.find(panel => panel.id === id)?.restore()
     }
 
-    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel }
+    /** 居中指定面板（右键菜单"居中窗口"时调用） */
+    function centerPanel(id: number) {
+        panels.value.find(panel => panel.id === id)?.center()
+    }
+
+    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel }
 })
