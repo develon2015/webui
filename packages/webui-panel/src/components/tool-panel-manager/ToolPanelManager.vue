@@ -1,6 +1,6 @@
 <template>
   <!-- 主题类名切换任务栏配色变量；vertical 类切换为竖排布局 -->
-  <div class="tool-panel-manager" :class="[`theme-${theme}`, { vertical: mode === 'vertical' }]">
+  <div ref="barRef" class="tool-panel-manager" :class="[`theme-${theme}`, { vertical: mode === 'vertical' }]" @wheel="onBarWheel">
     <!-- 任务栏：罗列所有面板实例 -->
     <div
       v-for="panel in registry.panels"
@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, watch } from 'vue'
+import { onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { usePanelRegistryStore, type PanelEntry } from './panel-registry'
 import { resolvePanelIconType } from '../tool-panel/icon'
 
@@ -52,6 +52,19 @@ const props = withDefaults(defineProps<{
 
 // 面板注册表：任务栏的数据源
 const registry = usePanelRegistryStore()
+
+// 任务栏根元素（滚轮滚动容器）
+const barRef = ref<HTMLElement>()
+
+// 横向模式任务项过多时：把滚轮的纵向滚动量转为任务栏的横向滚动
+// 竖排模式交给浏览器原生纵向滚动，无需处理
+function onBarWheel(e: WheelEvent) {
+  if (props.mode === 'vertical') return
+  const bar = barRef.value
+  if (!bar || bar.scrollWidth <= bar.clientWidth) return
+  e.preventDefault()
+  bar.scrollLeft += e.deltaY + e.deltaX
+}
 
 // 右键菜单状态：是否显示、屏幕坐标、菜单指向的面板
 const menu = reactive({ visible: false, x: 0, y: 0, panelId: 0 })
@@ -163,6 +176,15 @@ onBeforeUnmount(() => {
   padding: 0 8px;
   background: var(--bar-bg);
   border-top: 1px solid var(--bar-border-color);
+  // 任务项过多时横向滚动（通过鼠标滚轮滚动，见 onBarWheel），隐藏滚动条保持任务栏外观
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
   font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
 
   // 竖排模式：停靠在视口左侧，任务项自上而下排列
