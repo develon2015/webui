@@ -83,10 +83,21 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         panels.value.find(panel => panel.id === id)?.restore()
     }
 
-    /** 居中指定面板（右键菜单"居中窗口"时调用） */
+    /** 居中指定面板（右键菜单"居中显示"时调用） */
     function centerPanel(id: number) {
         panels.value.find(panel => panel.id === id)?.center()
     }
 
-    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel }
+    /** 重排任务栏顺序：把 source 面板移动到 target 面板所在的位置 */
+    function reorderPanel(sourceId: number, targetId: number) {
+        const from = panels.value.findIndex(panel => panel.id === sourceId)
+        const to = panels.value.findIndex(panel => panel.id === targetId)
+        if (from < 0 || to < 0 || from === to) return
+        const [moved] = panels.value.splice(from, 1)
+        if (moved) {
+            panels.value.splice(to, 0, moved)
+        }
+    }
+
+    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, reorderPanel }
 })

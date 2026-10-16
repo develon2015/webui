@@ -1,13 +1,15 @@
 <template>
   <!-- 主题类名切换任务栏配色变量；vertical 类切换为竖排布局 -->
   <div ref="barRef" class="tool-panel-manager" :class="[`theme-${theme}`, { vertical: mode === 'vertical' }]" @wheel="onBarWheel">
-    <!-- 任务栏：罗列所有面板实例 -->
+    <!-- 任务栏：罗列所有面板实例；按住任务项拖动可调整顺序 -->
     <div
       v-for="panel in registry.panels"
       :key="panel.id"
       class="taskbar-item"
-      :class="{ active: panel.id === registry.activeId && !panel.minimized(), minimized: panel.minimized() }"
+      :class="{ active: panel.id === registry.activeId && !panel.minimized(), minimized: panel.minimized(), dragging: dragState.active && dragState.sourceId === panel.id }"
+      :data-panel-id="panel.id"
       :title="panel.title()"
+      @pointerdown="onItemPointerDown($event, panel)"
       @click="onTaskItemClick(panel)"
       @contextmenu.prevent.stop="openMenu($event, panel.id)"
     >
@@ -67,6 +69,62 @@ function onBarWheel(e: WheelEvent) {
   bar.scrollLeft += e.deltaY + e.deltaX
 }
 
+// 任务项拖动排序状态：active 拖动中、sourceId 被拖动的面板、moved 是否产生过有效移动
+const dragState = reactive({ active: false, sourceId: 0, moved: false })
+let dragStartX = 0
+let dragStartY = 0
+let dragPointerId = -1
+
+// 按下任务项：准备拖动排序（仅左键），指针移动超过阈值后进入拖动
+function onItemPointerDown(e: PointerEvent, panel: PanelEntry) {
+  if (e.button !== 0) return
+  dragState.sourceId = panel.id
+  dragState.moved = false
+  dragState.active = false
+  dragStartX = e.clientX
+  dragStartY = e.clientY
+  dragPointerId = e.pointerId
+  document.addEventListener('pointermove', onItemPointerMove)
+  document.addEventListener('pointerup', onItemPointerUp)
+  document.addEventListener('pointercancel', onItemPointerUp)
+}
+
+// 拖动中：指针下的任务项即为目标位置，实时重排
+function onItemPointerMove(e: PointerEvent) {
+  if (e.pointerId !== dragPointerId || !dragState.sourceId) return
+  // 超过阈值才视为拖动，避免影响普通点击
+  if (!dragState.active) {
+    if (Math.abs(e.clientX - dragStartX) < 4 && Math.abs(e.clientY - dragStartY) < 4) return
+    dragState.active = true
+    document.body.style.userSelect = 'none'
+  }
+  const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.taskbar-item') as HTMLElement | null
+  const targetId = Number(el?.dataset.panelId)
+  if (targetId && targetId !== dragState.sourceId) {
+    registry.reorderPanel(dragState.sourceId, targetId)
+    dragState.moved = true
+  }
+}
+
+// 结束拖动排序：清理状态与全局监听
+function stopItemDrag() {
+  dragState.active = false
+  dragState.sourceId = 0
+  document.body.style.userSelect = ''
+  document.removeEventListener('pointermove', onItemPointerMove)
+  document.removeEventListener('pointerup', onItemPointerUp)
+  document.removeEventListener('pointercancel', onItemPointerUp)
+}
+
+function onItemPointerUp(e: PointerEvent) {
+  if (e.pointerId !== dragPointerId) return
+  // click 事件在 pointerup 之后触发，延后清零 moved 以抑制拖动后的点击置顶
+  if (dragState.moved) {
+    setTimeout(() => (dragState.moved = false), 0)
+  }
+  stopItemDrag()
+}
+
 // 右键菜单状态：是否显示、屏幕坐标、菜单指向的面板
 const menu = reactive({ visible: false, x: 0, y: 0, panelId: 0 })
 
@@ -115,6 +173,8 @@ function isMenuPanelMinimized() {
 
 // 任务栏点击：还原已最小化面板并置顶；点击当前激活面板则最小化（类 Windows 行为）；否则置顶
 function onTaskItemClick(panel: PanelEntry) {
+  // 拖动排序结束后的 click 不触发置顶 / 最小化
+  if (dragState.moved) return
   if (panel.minimized()) {
     registry.restorePanel(panel.id)
   } else if (registry.activeId === panel.id) {
@@ -136,9 +196,10 @@ watch(() => menu.visible, (visible) => {
   }
 })
 
-// 卸载时关闭菜单，watch 随之移除全局监听
+// 卸载时关闭菜单并结束拖动排序，随之移除全局监听
 onBeforeUnmount(() => {
   hideMenu()
+  stopItemDrag()
 })
 </script>
 
@@ -225,6 +286,8 @@ onBeforeUnmount(() => {
     cursor: pointer;
     user-select: none;
     transition: background 0.15s;
+    // 允许触摸拖动排序（阻止浏览器把手势识别为页面滚动）
+    touch-action: none;
 
     &:hover {
       background: var(--item-hover-bg);
@@ -238,6 +301,12 @@ onBeforeUnmount(() => {
     // 最小化的面板：弱化显示
     &.minimized {
       opacity: 0.55;
+    }
+
+    // 正在被拖动排序的任务项
+    &.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
     }
 
     // 自定义图标（与面板标题栏图标同步）
