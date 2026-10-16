@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { usePanelRegistryStore, type PanelEntry } from './panel-registry'
 import { resolvePanelIconType } from '../tool-panel/icon'
 
@@ -124,6 +124,36 @@ function onItemPointerUp(e: PointerEvent) {
   }
   stopItemDrag()
 }
+
+// ===== FLIP 动画 =====
+// 任务项顺序变化（拖动排序 / 面板注册注销）时，任务项平滑滑动到新位置：
+// watcher 默认 flush: 'pre'，回调里读到的还是旧布局（First）；
+// nextTick 等 DOM 更新后（Last）计算位移差，反向写入 transform 再过渡归位（Invert + Play）。
+// 使用 offsetLeft/Top 读布局位置，不受进行中的 transform 过渡影响，连续重排也能正确衔接。
+watch(() => registry.panels.map(panel => panel.id).join(','), async () => {
+  const first = new Map<number, { x: number, y: number }>()
+  barRef.value?.querySelectorAll<HTMLElement>('.taskbar-item').forEach((el) => {
+    first.set(Number(el.dataset.panelId), { x: el.offsetLeft, y: el.offsetTop })
+  })
+  await nextTick()
+  barRef.value?.querySelectorAll<HTMLElement>('.taskbar-item').forEach((el) => {
+    const prev = first.get(Number(el.dataset.panelId))
+    if (!prev) return // 新出现的任务项（如面板注册）没有旧位置，不做动画
+    const dx = prev.x - el.offsetLeft
+    const dy = prev.y - el.offsetTop
+    if (!dx && !dy) return
+    el.style.transition = 'none'
+    el.style.transform = `translate(${dx}px, ${dy}px)`
+    el.getBoundingClientRect() // 强制回流，让起始位移先生效
+    el.style.transition = 'transform 0.25s ease'
+    el.style.transform = ''
+    // 过渡结束后清掉内联样式，避免残留
+    el.addEventListener('transitionend', () => {
+      el.style.transition = ''
+      el.style.transform = ''
+    }, { once: true })
+  })
+})
 
 // 右键菜单状态：是否显示、屏幕坐标、菜单指向的面板
 const menu = reactive({ visible: false, x: 0, y: 0, panelId: 0 })
@@ -303,10 +333,11 @@ onBeforeUnmount(() => {
       opacity: 0.55;
     }
 
-    // 正在被拖动排序的任务项
+    // 正在被拖动排序的任务项：半透明 + 投影呈现"提起"效果
     &.dragging {
-      opacity: 0.5;
+      opacity: 0.85;
       cursor: grabbing;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     }
 
     // 自定义图标（与面板标题栏图标同步）
