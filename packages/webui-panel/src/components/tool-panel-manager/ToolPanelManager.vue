@@ -69,18 +69,23 @@ function onBarWheel(e: WheelEvent) {
   bar.scrollLeft += e.deltaY + e.deltaX
 }
 
-// 任务项拖动排序状态：active 拖动中、sourceId 被拖动的面板、moved 是否产生过有效移动
+// 任务项拖动状态：active 拖动中、sourceId 被拖动的面板、moved 是否产生过拖动
 const dragState = reactive({ active: false, sourceId: 0, moved: false })
 let dragStartX = 0
 let dragStartY = 0
 let dragPointerId = -1
+let dragOriginLeft = 0
+let dragOriginTop = 0
 
-// 按下任务项：准备拖动排序（仅左键），指针移动超过阈值后进入拖动
+// 按下任务项：准备拖动（仅左键），记录任务项的原始布局位置
 function onItemPointerDown(e: PointerEvent, panel: PanelEntry) {
   if (e.button !== 0) return
+  const item = e.currentTarget as HTMLElement
   dragState.sourceId = panel.id
   dragState.moved = false
   dragState.active = false
+  dragOriginLeft = item.offsetLeft
+  dragOriginTop = item.offsetTop
   dragStartX = e.clientX
   dragStartY = e.clientY
   dragPointerId = e.pointerId
@@ -89,24 +94,32 @@ function onItemPointerDown(e: PointerEvent, panel: PanelEntry) {
   document.addEventListener('pointercancel', onItemPointerUp)
 }
 
-// 拖动中：指针下的任务项即为目标位置，实时重排
+// 拖动中：只有被拖动的任务项沿任务栏布局方向移动（位移钳制在任务栏范围内），其它任务项保持不动
 function onItemPointerMove(e: PointerEvent) {
   if (e.pointerId !== dragPointerId || !dragState.sourceId) return
+  const bar = barRef.value
+  if (!bar) return
+  const item = bar.querySelector<HTMLElement>(`.taskbar-item[data-panel-id="${dragState.sourceId}"]`)
+  if (!item) return
+
   // 超过阈值才视为拖动，避免影响普通点击
   if (!dragState.active) {
     if (Math.abs(e.clientX - dragStartX) < 4 && Math.abs(e.clientY - dragStartY) < 4) return
     dragState.active = true
+    dragState.moved = true
     document.body.style.userSelect = 'none'
   }
-  const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.taskbar-item') as HTMLElement | null
-  const targetId = Number(el?.dataset.panelId)
-  if (targetId && targetId !== dragState.sourceId) {
-    registry.reorderPanel(dragState.sourceId, targetId)
-    dragState.moved = true
+
+  if (props.mode === 'vertical') {
+    const dy = Math.min(Math.max(e.clientY - dragStartY, -dragOriginTop), bar.scrollHeight - item.offsetHeight - dragOriginTop)
+    item.style.transform = `translate(0, ${dy}px)`
+  } else {
+    const dx = Math.min(Math.max(e.clientX - dragStartX, -dragOriginLeft), bar.scrollWidth - item.offsetWidth - dragOriginLeft)
+    item.style.transform = `translate(${dx}px, 0)`
   }
 }
 
-// 结束拖动排序：清理状态与全局监听
+// 结束拖动：清理状态与全局监听（内联位移由 FLIP watcher 或落点逻辑清理）
 function stopItemDrag() {
   dragState.active = false
   dragState.sourceId = 0
@@ -118,40 +131,80 @@ function stopItemDrag() {
 
 function onItemPointerUp(e: PointerEvent) {
   if (e.pointerId !== dragPointerId) return
-  // click 事件在 pointerup 之后触发，延后清零 moved 以抑制拖动后的点击置顶
-  if (dragState.moved) {
+  if (dragState.active && e.type !== 'pointercancel') {
+    dropDraggedItem(e)
+    // click 事件在 pointerup 之后触发，延后清零 moved 以抑制拖动后的点击置顶
     setTimeout(() => (dragState.moved = false), 0)
+  } else if (dragState.active) {
+    // pointercancel：放弃拖动，直接清掉内联位移归位
+    const item = barRef.value?.querySelector<HTMLElement>(`.taskbar-item[data-panel-id="${dragState.sourceId}"]`)
+    if (item) item.style.transform = ''
   }
   stopItemDrag()
 }
 
+// 放开鼠标：根据当前指针位置计算目标下标（越过其余任务项中线算作插到它前面），一次性重排
+function dropDraggedItem(e: PointerEvent) {
+  const bar = barRef.value
+  if (!bar) return
+  const item = bar.querySelector<HTMLElement>(`.taskbar-item[data-panel-id="${dragState.sourceId}"]`)
+  if (!item) return
+  const vertical = props.mode === 'vertical'
+  const pointer = vertical ? e.clientY : e.clientX
+
+  // 其余任务项按当前布局顺序排列，第一个"中心在指针后方"的任务项即为目标插入点
+  const others = [...bar.querySelectorAll<HTMLElement>('.taskbar-item')]
+    .filter(el => Number(el.dataset.panelId) !== dragState.sourceId)
+  let toIndex = others.length
+  for (const [i, other] of others.entries()) {
+    const r = other.getBoundingClientRect()
+    const center = vertical ? r.top + r.height / 2 : r.left + r.width / 2
+    if (pointer < center) {
+      toIndex = i
+      break
+    }
+  }
+
+  // 顺序有变化才通知 store（FLIP watcher 会播放滑动动画并清理内联位移）
+  const before = registry.panels.map(panel => panel.id).join(',')
+  registry.movePanel(dragState.sourceId, toIndex)
+  if (registry.panels.map(panel => panel.id).join(',') === before) {
+    item.style.transform = '' // 顺序没变，直接归位
+  }
+}
+
 // ===== FLIP 动画 =====
-// 任务项顺序变化（拖动排序 / 面板注册注销）时，任务项平滑滑动到新位置：
-// watcher 默认 flush: 'pre'，回调里读到的还是旧布局（First）；
-// nextTick 等 DOM 更新后（Last）计算位移差，反向写入 transform 再过渡归位（Invert + Play）。
-// 使用 offsetLeft/Top 读布局位置，不受进行中的 transform 过渡影响，连续重排也能正确衔接。
-watch(() => registry.panels.map(panel => panel.id).join(','), async () => {
+// 任务项顺序变化（拖动落点重排 / 面板注册注销）时，任务项平滑滑动到新位置：
+// - First 取 getBoundingClientRect（真实视觉位置）：拖动中的任务项带着内联位移，
+//   松手后会从"手松开的位置"滑向新槽位，而不是跳回原位再滑动；
+// - nextTick 后先清掉拖动写入的内联 transform、cancel 旧动画，再读纯布局位置
+//   （全部在同一帧内完成，不产生绘制），差值即为起始偏移；
+// - 用 Web Animations API 播放，连续重排也不会残留内联样式。
+watch(() => registry.panels.map(panel => panel.id).join(','), () => {
+  // First：记录每个任务项当前的视觉位置（此时 DOM 尚未更新）
   const first = new Map<number, { x: number, y: number }>()
   barRef.value?.querySelectorAll<HTMLElement>('.taskbar-item').forEach((el) => {
-    first.set(Number(el.dataset.panelId), { x: el.offsetLeft, y: el.offsetTop })
+    const rect = el.getBoundingClientRect()
+    first.set(Number(el.dataset.panelId), { x: rect.left, y: rect.top })
   })
-  await nextTick()
-  barRef.value?.querySelectorAll<HTMLElement>('.taskbar-item').forEach((el) => {
-    const prev = first.get(Number(el.dataset.panelId))
-    if (!prev) return // 新出现的任务项（如面板注册）没有旧位置，不做动画
-    const dx = prev.x - el.offsetLeft
-    const dy = prev.y - el.offsetTop
-    if (!dx && !dy) return
-    el.style.transition = 'none'
-    el.style.transform = `translate(${dx}px, ${dy}px)`
-    el.getBoundingClientRect() // 强制回流，让起始位移先生效
-    el.style.transition = 'transform 0.25s ease'
-    el.style.transform = ''
-    // 过渡结束后清掉内联样式，避免残留
-    el.addEventListener('transitionend', () => {
-      el.style.transition = ''
-      el.style.transform = ''
-    }, { once: true })
+  nextTick(() => {
+    barRef.value?.querySelectorAll<HTMLElement>('.taskbar-item').forEach((el) => {
+      const prev = first.get(Number(el.dataset.panelId))
+      if (!prev) return // 新注册的任务项没有旧位置，不做动画
+      el.style.transform = '' // 清除拖动期间写入的内联位移
+      el.getAnimations().forEach(anim => anim.cancel())
+      const rect = el.getBoundingClientRect()
+      const dx = prev.x - rect.left
+      const dy = prev.y - rect.top
+      if (!dx && !dy) return
+      el.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px)` },
+          { transform: 'translate(0, 0)' },
+        ],
+        { duration: 200, easing: 'ease-out' },
+      )
+    })
   })
 })
 
@@ -333,8 +386,10 @@ onBeforeUnmount(() => {
       opacity: 0.55;
     }
 
-    // 正在被拖动排序的任务项：半透明 + 投影呈现"提起"效果
+    // 正在被拖动的任务项：提升层级压在其它项之上，半透明 + 投影呈现"提起"效果
     &.dragging {
+      position: relative;
+      z-index: 1;
       opacity: 0.85;
       cursor: grabbing;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);

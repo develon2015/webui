@@ -88,16 +88,14 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         panels.value.find(panel => panel.id === id)?.center()
     }
 
-    /** 重排任务栏顺序：把 source 面板移动到 target 面板所在的位置 */
-    function reorderPanel(sourceId: number, targetId: number) {
-        const from = panels.value.findIndex(panel => panel.id === sourceId)
-        const to = panels.value.findIndex(panel => panel.id === targetId)
-        if (from < 0 || to < 0 || from === to) return
+    /** 把面板移动到指定下标（toIndex 相对于"移除该面板后"的剩余列表） */
+    function movePanel(id: number, toIndex: number) {
+        const from = panels.value.findIndex(panel => panel.id === id)
+        if (from < 0) return
         const [moved] = panels.value.splice(from, 1)
-        if (moved) {
-            panels.value.splice(to, 0, moved)
-        }
+        if (!moved) return
+        panels.value.splice(Math.min(Math.max(toIndex, 0), panels.value.length), 0, moved)
     }
 
-    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, reorderPanel }
+    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel }
 })
