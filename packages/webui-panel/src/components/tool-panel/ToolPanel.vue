@@ -120,10 +120,8 @@ function highlight(value: boolean) {
   }
 }
 
-// 关闭面板：隐藏自身、从任务栏移除，并通知父组件
+// 关闭面板：由外部 v-if 控制，组件卸载时自动从任务栏移除
 function close() {
-  visible.value = false
-  registry.unregister(panelId)
   emit('close')
 }
 
