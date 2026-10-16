@@ -14,7 +14,7 @@
       @contextmenu.prevent.stop="openMenu($event, panel.id)"
     >
       <!-- 图标：与面板标题栏图标同步显示，未设置时显示默认色块 -->
-      <img v-if="panel.icon() && resolvePanelIconType(panel.icon()) === 'img'" class="taskbar-icon is-img" :src="panel.icon()" alt="">
+      <img v-if="panel.icon() && resolvePanelIconType(panel.icon()) === 'img'" class="taskbar-icon is-img" :src="panel.icon()" alt="" @pointerdown.prevent draggable="false">
       <span v-else-if="panel.icon() && resolvePanelIconType(panel.icon()) === 'svg'" class="taskbar-icon is-svg" v-html="panel.icon()"></span>
       <span v-else-if="panel.icon()" class="taskbar-icon is-text">{{ panel.icon() }}</span>
       <template v-else>
