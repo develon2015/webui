@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ToolPanel, ToolPanelHierarchy, ToolPanelManager } from '@develon/webui-panel'
+import { ToolPanel, ToolPanelHierarchy } from '@develon/webui-panel'
 import debugIcon from '@/assets/icons/debug.svg'
 
 const panelRef = ref<InstanceType<typeof ToolPanel> | null>(null)
@@ -50,8 +50,6 @@ arts.forEach(it => it.content = it.content.split('\n').filter(it => it.trim() !=
     </ToolPanel>
 
     <!-- <ToolPanelHierarchy /> -->
-    <ToolPanelManager theme="dark"></ToolPanelManager>
-    <ToolPanelManager theme="dark" mode="vertical" class="panel-manager"></ToolPanelManager>
   </div>
 </template>
 
@@ -88,9 +86,5 @@ arts.forEach(it => it.content = it.content.split('\n').filter(it => it.trim() !=
       white-space: pre;
     }
   }
-}
-
-.panel-manager {
-  height: calc(100vh - 41px - 16px) !important;
 }
 </style>

@@ -6,7 +6,7 @@ import debugIcon from '@/assets/icons/debug.svg'
 
 <template>
   <div>
-    <ToolPanel title="窗口管理" style="width: 50%; height: 300px;">
+    <ToolPanel title="窗口管理" class="panel" style="width: 50%; height: 300px;">
       <ToolPanelManager theme="sci-fi"></ToolPanelManager>
     </ToolPanel>
 
@@ -24,7 +24,6 @@ import debugIcon from '@/assets/icons/debug.svg'
       </div>
     </ToolPanel>
 
-    <ToolPanelManager theme="dark"></ToolPanelManager>
     <ToolPanelManager theme="dark" mode="vertical" class="panel-manager"></ToolPanelManager>
   </div>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ToolPanel, ToolPanelManager } from '@develon/webui-panel'
+import { ToolPanel } from '@develon/webui-panel'
 import logo from '@/assets/icons/build.svg'
 import { ref } from 'vue'
 
@@ -19,8 +19,6 @@ const toggleShowPanel = () => {
     <ToolPanel theme="sci-fi" class="panel2" title="Tool Panel Control" :icon="logo">
       <button @click="toggleShowPanel">Toggle</button>
     </ToolPanel>
-
-    <ToolPanelManager theme="sci-fi" />
   </main>
 </template>
 
