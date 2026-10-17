@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <!-- 面板根节点：v-show 控制显隐（关闭或最小化时隐藏），主题类名切换配色变量 -->
-    <div v-show="visible && !minimized" ref="panelRef" class="tool-panel" :class="`theme-${theme}`" :style="style" v-bind="{ ...attrs, ...scoped }">
+    <div v-show="!minimized" ref="panelRef" class="tool-panel" :class="`theme-${theme}`" :style="style" v-bind="{ ...attrs, ...scoped }">
       <!-- 标题栏：按住可拖动面板 -->
       <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHandlePointerDown">
         <div class="header-decoration">
@@ -22,7 +22,7 @@
         </slot>
         <!-- 操作按钮组 -->
         <slot name="op">
-          <div class="op-btn setting"@click="emit('setting')" v-if="btns.includes('setting')">
+          <div class="op-btn setting" @click="emit('setting')" v-if="btns.includes('setting')">
             <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" style="color:#fff"><defs><g id="t"><rect x="-6" y="-32" width="12" height="14" rx="2" fill="currentColor"/></g></defs><g transform="translate(50,50)"><circle r="22" fill="currentColor"/><use href="#t"/><use href="#t" transform="rotate(45)"/><use href="#t" transform="rotate(90)"/><use href="#t" transform="rotate(135)"/><use href="#t" transform="rotate(180)"/><use href="#t" transform="rotate(225)"/><use href="#t" transform="rotate(270)"/><use href="#t" transform="rotate(315)"/><circle r="12" style="fill: #000"/></g></svg>
           </div>
           <div class="op-btn menu" @click="emit('menu')" v-if="btns.includes('menu')">
@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, Teleport, useAttrs } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useAttrs } from 'vue'
 import { useZIndexStore } from './z-index'
 import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
 import { resolvePanelIconType } from './icon'
@@ -105,7 +105,6 @@ const iconType = computed(() => resolvePanelIconType(props.icon))
 const zIndexStore = useZIndexStore()
 const registry = usePanelRegistryStore()
 const zIndex = ref(zIndexStore.tapZIndex()) // 初始即申请一个全局 z-index
-const visible = ref(true) // 面板是否可见（关闭后隐藏并退出任务栏）
 const minimized = ref(false) // 是否处于最小化状态（隐藏面板，但保留在任务栏）
 // 在注册表中分配的面板 id（响应式：经 defineExpose 暴露给外部，
 // 父面板把它作为 parent prop 传给子面板，从而建立层级关系）

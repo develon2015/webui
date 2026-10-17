@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, Teleport, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
 import { useHierarchyRegistryStore } from './hierarchy-registry'
 
