@@ -21,6 +21,8 @@ export interface UseDragMoveOptions {
     ignore?: (e: PointerEvent) => boolean
     /** 拖动开始回调（如将面板提到最顶层） */
     onDragStart?: (e: PointerEvent) => void
+    /** 拖动位移更新回调（每次 pointermove 触发，如通知连线层重绘） */
+    onDragMove?: () => void
 }
 
 export function useDragMove(options: UseDragMoveOptions) {
@@ -55,6 +57,7 @@ export function useDragMove(options: UseDragMoveOptions) {
     if (!dragging) return
     offset.x = clamp(startOffsetX + (e.clientX - startX), minOffsetX, maxOffsetX)
     offset.y = clamp(startOffsetY + (e.clientY - startY), minOffsetY, maxOffsetY)
+    options.onDragMove?.()
   }
 
   // 结束拖动：还原状态并移除全局事件监听

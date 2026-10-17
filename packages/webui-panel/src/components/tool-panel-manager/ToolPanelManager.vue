@@ -34,6 +34,9 @@
         <div class="menu-item" @click="onCloseWindow">关闭窗口</div>
       </div>
     </Teleport>
+
+    <!-- 面板层级连线：根据面板 parent 关系在 body 上绘制穿透画布（内部含多实例单例守卫） -->
+    <ToolPanelHierarchy :theme="theme" />
   </div>
 </template>
 
@@ -41,6 +44,7 @@
 import { nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { usePanelRegistryStore, type PanelEntry } from './panel-registry'
 import { resolvePanelIconType } from '../tool-panel/icon'
+import ToolPanelHierarchy from '../tool-panel-hierarchy/ToolPanelHierarchy.vue'
 
 // 组件属性：theme 决定任务栏与右键菜单配色，mode 决定任务栏布局方向
 const props = withDefaults(defineProps<{

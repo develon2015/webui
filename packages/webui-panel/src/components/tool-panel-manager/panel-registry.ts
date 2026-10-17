@@ -15,6 +15,10 @@ export interface PanelEntry {
     icon: () => string
     /** 返回面板是否处于最小化状态 */
     minimized: () => boolean
+    /** 返回父面板 id（getter 形式，读取时仍保持响应式；0 表示无父级），层级连线据此绘制 */
+    parentId: () => number
+    /** 返回面板根元素，层级连线绘制据此取几何信息 */
+    el: () => HTMLElement | undefined
     /** 将面板置顶 */
     tapZIndex: () => void
     /** 高亮显示面板 */
@@ -36,6 +40,13 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
     const activeId = ref(0)
     // 已登记的面板条目（任务栏数据源）
     const panels = ref<PanelEntry[]>([])
+    // 面板布局版本号：面板几何变化（拖动 / 还原 / 居中）时自增，层级连线组件据此感知重绘
+    const layoutTick = ref(0)
+
+    /** 通知面板几何发生变化（面板拖动、还原、居中等场景调用） */
+    function bumpLayout() {
+        layoutTick.value++
+    }
 
     /** 注册面板实例，返回分配的面板 id */
     function register(entry: Omit<PanelEntry, 'id'>) {
@@ -97,5 +108,5 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         panels.value.splice(Math.min(Math.max(toIndex, 0), panels.value.length), 0, moved)
     }
 
-    return { activeId, panels, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel }
+    return { activeId, panels, layoutTick, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel, bumpLayout }
 })

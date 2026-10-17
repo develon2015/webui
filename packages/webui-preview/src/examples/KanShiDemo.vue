@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { ToolPanel, ToolPanelManager } from '@develon/webui-panel'
+import { ref } from 'vue'
+import { ToolPanel, ToolPanelHierarchy, ToolPanelManager } from '@develon/webui-panel'
 import debugIcon from '@/assets/icons/debug.svg'
+
+const panelRef = ref<InstanceType<typeof ToolPanel> | null>(null)
 
 const arts = [
   {
@@ -37,12 +40,16 @@ arts.forEach(it => it.content = it.content.split('\n').filter(it => it.trim() !=
 
 <template>
   <div>
-    <ToolPanel theme="dark" :icon="debugIcon" :title="art.title" class="panel" v-for="art in arts" :key="art.title">
+    <ToolPanel ref="panelRef" theme="dark" :icon="debugIcon" title="汉诗" class="parent-panel">
+    </ToolPanel>
+
+    <ToolPanel theme="dark" :icon="debugIcon" :title="art.title" class="panel" v-for="art in arts" :key="art.title" :parent="panelRef?.id">
       <div class="content">
         <div class="art">{{ art.content }}</div>
       </div>
     </ToolPanel>
 
+    <!-- <ToolPanelHierarchy /> -->
     <ToolPanelManager theme="dark"></ToolPanelManager>
     <ToolPanelManager theme="dark" mode="vertical" class="panel-manager"></ToolPanelManager>
   </div>
@@ -55,6 +62,13 @@ arts.forEach(it => it.content = it.content.split('\n').filter(it => it.trim() !=
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
+}
+
+.parent-panel {
+  width: 400px;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .panel {

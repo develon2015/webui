@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <!-- 面板根节点：v-show 控制显隐（关闭或最小化时隐藏），主题类名切换配色变量 -->
-    <div v-show="visible && !minimized" ref="panelRef" class="panel" :class="`theme-${theme}`" :style="style" v-bind="{ ...attrs, ...scoped }">
+    <div v-show="visible && !minimized" ref="panelRef" class="tool-panel" :class="`theme-${theme}`" :style="style" v-bind="{ ...attrs, ...scoped }">
       <!-- 标题栏：按住可拖动面板 -->
       <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHandlePointerDown">
         <div class="header-decoration">
@@ -63,11 +63,14 @@ const props = withDefaults(defineProps<{
   icon?: string
   /** 主题：'dark' 绝对黑暗黑风格（默认）；'sci-fi' 蓝色科幻风格 */
   theme?: 'dark' | 'sci-fi'
+  /** 父面板 id（父面板实例暴露的 id 属性，0 表示无父级），层级连线组件据此绘制父子连线 */
+  parent?: number
 }>(), {
   btns: () => ['setting', 'menu', 'min', 'close'],
   draggable: true,
   icon: '',
   theme: 'dark',
+  parent: 0,
 })
 
 // 自定义事件：对应各操作按钮的点击
@@ -90,6 +93,8 @@ const { style: dragStyle, onHandlePointerDown, center: dragCenter } = useDragMov
   enabled: () => props.draggable,
   ignore: e => !!(e.target as HTMLElement).closest('.op-btn'),
   onDragStart: tapToTop,
+  // 拖动位移变化时通知注册表（层级连线层据此重绘）
+  onDragMove: () => registry.bumpLayout(),
 })
 
 // 计算面板根节点的样式：拖动位移样式 + 全局 z-index 动态更新
@@ -102,13 +107,15 @@ const registry = usePanelRegistryStore()
 const zIndex = ref(zIndexStore.tapZIndex()) // 初始即申请一个全局 z-index
 const visible = ref(true) // 面板是否可见（关闭后隐藏并退出任务栏）
 const minimized = ref(false) // 是否处于最小化状态（隐藏面板，但保留在任务栏）
-let panelId = 0 // 在注册表中分配的面板 id
+// 在注册表中分配的面板 id（响应式：经 defineExpose 暴露给外部，
+// 父面板把它作为 parent prop 传给子面板，从而建立层级关系）
+const panelId = ref(0)
 
 // 将面板提到最顶层（已是最顶层时不再申请，避免 z-index 无谓增长）
 function tapToTop() {
   if (zIndex.value < zIndexStore.zIndex) {
     zIndex.value = zIndexStore.tapZIndex()
-    registry.setActive(panelId)
+    registry.setActive(panelId.value)
   }
 }
 
@@ -135,25 +142,29 @@ function minimize() {
 function restore() {
   minimized.value = false
   zIndex.value = zIndexStore.tapZIndex()
-  registry.setActive(panelId)
+  registry.setActive(panelId.value)
+  registry.bumpLayout()
 }
 
 // 居中面板：取消最小化、移动到视口中心并置顶
 async function center() {
   if (minimized.value) minimized.value = false
   zIndex.value = zIndexStore.tapZIndex()
-  registry.setActive(panelId)
+  registry.setActive(panelId.value)
   // 等最小化状态渲染完成后，useDragMove 才能读到面板的有效矩形
   await nextTick()
   dragCenter()
+  registry.bumpLayout()
 }
 
 // 挂载后登记到面板注册表，任务栏即可罗列本面板
 onMounted(() => {
-  panelId = registry.register({
+  panelId.value = registry.register({
     title: () => props.title,
     icon: () => props.icon,
     minimized: () => minimized.value,
+    parentId: () => props.parent ?? 0,
+    el: () => panelRef.value,
     tapZIndex: tapToTop,
     highlight,
     minimize,
@@ -165,17 +176,17 @@ onMounted(() => {
 
 // 卸载前清理：从任务栏注销（拖动事件监听由 useDragMove 自行清理）
 onBeforeUnmount(() => {
-  registry.unregister(panelId)
+  registry.unregister(panelId.value)
 })
 
-// 暴露实例方法：父组件可通过模板 ref 手动最小化 / 还原 / 居中 / 关闭
-defineExpose({ minimize, restore, center, close })
+// 暴露实例成员：id 供子面板作为 parent prop 引用；方法供父组件手动最小化 / 还原 / 居中 / 关闭
+defineExpose({ id: panelId, minimize, restore, center, close })
 </script>
 
 <style lang="scss" scoped>
 // ===== 主题配色（CSS 变量） =====
 // 默认：暗黑主题（绝对黑底 + 明亮高对比）；.theme-sci-fi 覆盖为蓝色科幻配色
-.panel {
+.tool-panel {
   --panel-bg: #000000;
   --panel-backdrop: none;
   --panel-shadow: rgba(0, 0, 0, 0.8);

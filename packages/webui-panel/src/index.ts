@@ -4,11 +4,13 @@
 import type { App, ObjectPlugin } from 'vue'
 import ToolPanel from './components/tool-panel/ToolPanel.vue'
 import ToolPanelManager from './components/tool-panel-manager/ToolPanelManager.vue'
+import ToolPanelHierarchy from './components/tool-panel-hierarchy/ToolPanelHierarchy.vue'
 
 // 以数组的结构保存组件，便于遍历
 const components = [
     ToolPanel,
     ToolPanelManager,
+    ToolPanelHierarchy,
 ]
 
 /**
@@ -31,4 +33,5 @@ export {
     plugin,
     ToolPanel,
     ToolPanelManager,
+    ToolPanelHierarchy,
 }
