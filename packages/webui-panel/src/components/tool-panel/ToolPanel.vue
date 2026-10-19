@@ -1,7 +1,8 @@
 <template>
   <Teleport to="body">
-    <!-- 面板根节点：v-show 控制显隐（关闭或最小化时隐藏），主题类名切换配色变量 -->
-    <div v-show="!minimized" ref="panelRef" class="tool-panel" :class="`theme-${theme}`" :style="style" v-bind="{ ...attrs, ...scoped }">
+    <!-- 面板根节点：v-show 控制显隐（关闭或最小化时隐藏），主题类名切换配色变量；
+         v-bind 需在 :style 之前，保证排列尺寸（样式绑定内的 width/height）覆盖父组件内联样式 -->
+    <div v-show="!minimized" ref="panelRef" class="tool-panel" :class="`theme-${theme}`" v-bind="{ ...attrs, ...scoped }" :style="style" >
       <!-- 标题栏：按住可拖动面板 -->
       <div class="panel-header" :class="{ 'is-draggable': draggable }" @pointerdown="onHandlePointerDown">
         <div class="header-decoration">
@@ -97,8 +98,10 @@ const { style: dragStyle, onHandlePointerDown, center: dragCenter, moveTo: dragM
   onDragMove: () => registry.bumpLayout(),
 })
 
-// 计算面板根节点的样式：拖动位移样式 + 全局 z-index 动态更新
-const style = computed(() => ({ ...dragStyle.value, zIndex: zIndex.value }))
+// 计算面板根节点的样式：拖动位移样式 + 排列尺寸 + 全局 z-index 动态更新
+// （排列尺寸放进绑定输出：父组件传有内联样式（如 style="width: 50%"）时也能覆盖，且不会被重渲染还原）
+const arrangedSize = ref<{ width?: string, height?: string }>({})
+const style = computed(() => ({ ...dragStyle.value, ...arrangedSize.value, zIndex: zIndex.value }))
 // 图标渲染类型：内联 svg / 图片地址 / 文本
 const iconType = computed(() => resolvePanelIconType(props.icon))
 
@@ -156,19 +159,28 @@ async function center() {
   registry.bumpLayout()
 }
 
-// 排列面板到指定矩形（层叠 / 堆叠 / 并排窗口时由任务栏调用）：
-// 取消最小化并置顶，位置移动到 rect.x/y；width/height 提供时以内联样式设定尺寸
-// （内联尺寸不在 :style 绑定内，不会被 Vue 的样式 patch 覆盖）
+// 排列面板到指定矩形（平铺窗口时由任务栏调用）：
+// 取消最小化并置顶；width/height 提供时先设定尺寸，再把位置移动到 rect.x/y。
+// 必须先改尺寸后定位：外部 transform（如 translate(-50%,-50%)）按当前尺寸解析成固定像素，
+// 先移动后改尺寸会因快照位移与新尺寸的外部位移叠加错位
 async function arrange(rect: { x: number, y: number, width?: number, height?: number }) {
   if (minimized.value) minimized.value = false
   zIndex.value = zIndexStore.tapZIndex()
   registry.setActive(panelId.value)
-  // 等最小化状态渲染完成后，useDragMove 才能读到面板的有效矩形
+  // 尺寸经样式绑定输出（覆盖父组件的内联 width/height）
+  arrangedSize.value = {
+    ...(rect.width != null ? { width: `${rect.width}px` } : {}),
+    ...(rect.height != null ? { height: `${rect.height}px` } : {}),
+  }
+  // 等最小化状态与内联尺寸渲染完成后，useDragMove 才能读到面板的有效矩形
   await nextTick()
   dragMoveTo(rect.x, rect.y)
-  if (rect.width != null) panelRef.value?.style.setProperty('width', `${rect.width}px`)
-  if (rect.height != null) panelRef.value?.style.setProperty('height', `${rect.height}px`)
   registry.bumpLayout()
+}
+
+// 恢复面板自然尺寸（清空排列写入的尺寸；注册表在测量类排列前调用，保证以自然尺寸为基准）
+function restoreSize() {
+  arrangedSize.value = {}
 }
 
 // 挂载后登记到面板注册表，任务栏即可罗列本面板
@@ -185,6 +197,7 @@ onMounted(() => {
     restore,
     center,
     arrange,
+    restoreSize,
     close,
   })
 })

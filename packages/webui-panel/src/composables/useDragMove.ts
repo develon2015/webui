@@ -118,19 +118,25 @@ export function useDragMove(options: UseDragMoveOptions) {
     document.addEventListener('pointercancel', onPointerUp)
   }
 
-  // 将元素移动到视口指定坐标（元素左上角对齐该坐标，叠加到当前拖动偏移上）
-  // 与拖动相同的屏幕空间平移方案：外部无论是什么 transform（translate(-50%,-50%) / scale / rotate）都能精确落到目标位置
+  // 将元素移动到视口指定坐标（元素左上角对齐该坐标）
+  // 以"净位置"为基准绝对重算位移：暂时移除自身内联 transform，读取外部 transform 与渲染矩形，
+  // 再内联写入 translate(位移) 外部transform —— 面板尺寸刚被修改时，旧内联 transform 里
+  // 烘焙的外部位移（如 translate(-50%,-50%) 按旧尺寸解析的像素）已过期，
+  // 绝对重算保证任何"先改尺寸后移动"的序列（排列 / 居中）都精确落位
   function moveTo(x: number, y: number) {
     const el = options.target.value
     if (!el) return
+    const ownTransform = el.style.transform
+    el.style.transform = ''
+    const external = getComputedStyle(el).transform
     const rect = el.getBoundingClientRect()
+    el.style.transform = ownTransform
     // 元素尚未渲染（如仍处于最小化隐藏状态）时跳过
     if (rect.width === 0 && rect.height === 0) return
-    // 移动位移以内联 transform 输出，需先快照外部 transform
-    externalTransform.value = captureExternalTransform(el)
+    externalTransform.value = external
     hasDragged.value = true
-    offset.x += x - rect.left
-    offset.y += y - rect.top
+    offset.x = x - rect.left
+    offset.y = y - rect.top
   }
 
   // 将元素移动到视口中心

@@ -40,6 +40,7 @@
     <Teleport to="body">
       <div v-if="barMenu.visible" class="context-menu" :class="`theme-${theme}`" :style="{ left: `${barMenu.x}px`, top: `${barMenu.y}px` }" @contextmenu.prevent.stop>
         <div class="menu-item" @click="onCascadeWindows">层叠窗口(<span class="accel">D</span>)</div>
+        <div class="menu-item" @click="onGridWindows">平铺显示窗口(<span class="accel">T</span>)</div>
         <div class="menu-item" @click="onStackWindows">堆叠显示窗口(<span class="accel">E</span>)</div>
         <div class="menu-item" @click="onSideBySideWindows">并排显示窗口(<span class="accel">I</span>)</div>
         <div class="menu-item" @click="onMinimizeAllWindows">最小化全部窗口</div>
@@ -51,6 +52,13 @@
     <ToolPanelHierarchy :theme="theme" />
   </div>
 </template>
+
+<script lang="ts">
+// 多管理器实例间的菜单互斥锁（模块级变量，跨组件实例共享）：
+// 页面上可能同时存在多个管理器实例（底部任务栏 / 竖排任务栏 / 面板内嵌任务栏），
+// 若不加锁，各实例的右键菜单可能同时显示并相互叠放，导致误点其它实例的菜单项
+let menuCloser: (() => void) | null = null
+</script>
 
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
@@ -232,7 +240,7 @@ const barMenu = reactive({ visible: false, x: 0, y: 0 })
 
 // 在光标位置打开某面板的右键菜单
 function openMenu(e: MouseEvent, panelId: number) {
-  barMenu.visible = false // 保证同时只显示一个菜单
+  claimMenus() // 关闭其它实例已打开的菜单，保证全局同时只显示一个菜单
   menu.panelId = panelId
   // 防止菜单超出视口（3 个菜单项约高 100px）
   menu.x = Math.min(e.clientX, window.innerWidth - 152)
@@ -242,10 +250,10 @@ function openMenu(e: MouseEvent, panelId: number) {
 
 // 在光标位置打开任务栏右键菜单（任务栏空白处右键 / Shift+右键任务项）
 function openBarMenu(e: MouseEvent) {
-  menu.visible = false // 保证同时只显示一个菜单
-  // 防止菜单超出视口（5 个菜单项约高 160px）
+  claimMenus() // 关闭其它实例已打开的菜单，保证全局同时只显示一个菜单
+  // 防止菜单超出视口（6 个菜单项约高 190px）
   barMenu.x = Math.min(e.clientX, window.innerWidth - 152)
-  barMenu.y = Math.min(e.clientY, window.innerHeight - 160)
+  barMenu.y = Math.min(e.clientY, window.innerHeight - 190)
   barMenu.visible = true
 }
 
@@ -324,6 +332,12 @@ function onSideBySideWindows() {
   hideBarMenu()
 }
 
+// 菜单项"平铺显示窗口"：所有未最小化面板按实际大小做二维网格瀑布式平铺
+function onGridWindows() {
+  registry.gridPanels(getWorkArea())
+  hideBarMenu()
+}
+
 // 菜单项"最小化全部窗口"
 function onMinimizeAllWindows() {
   registry.minimizeAllPanels()
@@ -353,23 +367,30 @@ function onTaskItemClick(panel: PanelEntry) {
 // 点击任意处或再次右键时自动关闭所有菜单（打开菜单的事件已 .stop，不会立即触发隐藏）
 watch(() => menu.visible || barMenu.visible, (visible) => {
   if (visible) {
-    document.addEventListener('click', hideAllMenus)
-    document.addEventListener('contextmenu', hideAllMenus)
+    document.addEventListener('click', closeAllMenus)
+    document.addEventListener('contextmenu', closeAllMenus)
   } else {
-    document.removeEventListener('click', hideAllMenus)
-    document.removeEventListener('contextmenu', hideAllMenus)
+    document.removeEventListener('click', closeAllMenus)
+    document.removeEventListener('contextmenu', closeAllMenus)
   }
 })
 
-// 关闭所有右键菜单
-function hideAllMenus() {
+// 接管菜单互斥锁：先关闭其它实例已打开的菜单（调用其 closeAllMenus），再由本实例持锁
+function claimMenus() {
+  menuCloser?.()
+  menuCloser = closeAllMenus
+}
+
+// 关闭本实例的所有右键菜单（持有互斥锁时同时释放）
+function closeAllMenus() {
   menu.visible = false
   barMenu.visible = false
+  if (menuCloser === closeAllMenus) menuCloser = null
 }
 
 // 卸载时关闭菜单并结束拖动排序，随之移除全局监听
 onBeforeUnmount(() => {
-  hideAllMenus()
+  closeAllMenus()
   stopItemDrag()
 })
 </script>

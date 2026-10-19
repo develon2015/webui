@@ -3,7 +3,7 @@
  * ToolPanel 实例挂载时在此登记，ToolPanelManager（任务栏）据此罗列所有面板
  */
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 
 // 任务栏面板条目
 export interface PanelEntry {
@@ -29,8 +29,10 @@ export interface PanelEntry {
     restore: () => void
     /** 将面板移动到视口中心并置顶 */
     center: () => void
-    /** 将面板排列到指定矩形（x/y 为视口坐标，width/height 省略时保持当前尺寸） */
+    /** 将面板排列到指定矩形（x/y 为视口坐标，width/height 省略时恢复自然尺寸） */
     arrange: (rect: { x: number, y: number, width?: number, height?: number }) => void
+    /** 恢复面板自然尺寸（清空平铺写入的尺寸，供测量类排列先归位再测量） */
+    restoreSize: () => void
     /** 关闭面板 */
     close: () => void
 }
@@ -39,6 +41,13 @@ export interface PanelEntry {
 export interface WorkArea {
     x: number
     y: number
+    width: number
+    height: number
+}
+
+/** 带实际尺寸的面板条目（窗口平铺按实际窗口大小计算） */
+interface PanelWithSize {
+    panel: PanelEntry
     width: number
     height: number
 }
@@ -141,8 +150,8 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
     }
 
     /** 未最小化面板及其当前尺寸（平铺按实际窗口大小计算，跳过读不到矩形的面板） */
-    function visibleSizes() {
-        const items: { panel: PanelEntry, width: number, height: number }[] = []
+    function visibleSizes(): PanelWithSize[] {
+        const items: PanelWithSize[] = []
         for (const panel of visiblePanels()) {
             const rect = panel.el()?.getBoundingClientRect()
             if (rect && rect.width > 0 && rect.height > 0) {
@@ -152,13 +161,24 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         return items
     }
 
-    /** 堆叠显示所有未最小化面板（任务栏菜单"堆叠显示窗口"）：尺寸不变，按实际窗口大小沿纵向平铺 */
-    function stackPanels(area: WorkArea) {
+    /** 先恢复所有未最小化面板的自然尺寸（清空平铺写入的尺寸）：
+     *  测量类排列（堆叠 / 并排 / 平铺）一律以自然尺寸为基准，
+     *  保证"平铺 → 堆叠 / 并排"与直接点击效果一致 */
+    async function restoreVisibleSizes() {
+        visiblePanels().forEach(panel => panel.restoreSize())
+        // 等尺寸清空渲染生效后，visibleSizes() 读到的才是自然尺寸
+        await nextTick()
+    }
+
+    /** 堆叠显示所有未最小化面板（任务栏菜单"堆叠显示窗口"）：尺寸不变，按自然尺寸沿纵向平铺 */
+    async function stackPanels(area: WorkArea) {
+        await restoreVisibleSizes()
         tilePanels(area, true)
     }
 
-    /** 并排显示所有未最小化面板（任务栏菜单"并排显示窗口"）：尺寸不变，按实际窗口大小沿横向平铺 */
-    function sideBySidePanels(area: WorkArea) {
+    /** 并排显示所有未最小化面板（任务栏菜单"并排显示窗口"）：尺寸不变，按自然尺寸沿横向平铺 */
+    async function sideBySidePanels(area: WorkArea) {
+        await restoreVisibleSizes()
         tilePanels(area, false)
     }
 
@@ -188,6 +208,48 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         }
     }
 
+    /** 平铺显示所有未最小化面板（任务栏菜单"平铺显示窗口"）：二维网格瀑布式平铺
+     *  行数取 ceil(√n)（尽量方正、行数优先），窗口按注册顺序依次分给"当前自然总高最小"的列
+     *  （高度相同时取靠左的列），使各列高度最均衡；随后把窗口缩放填充网格：
+     *  列宽均分工区宽度，列内高度按各窗口自然高度的比例分摊，整体铺满工作区 */
+    async function gridPanels(area: WorkArea) {
+        // 先恢复自然尺寸：连续平铺时以同一基准计算比例，效果与首次平铺一致
+        await restoreVisibleSizes()
+        const items = visibleSizes()
+        const count = items.length
+        if (!count) return
+        const rows = Math.ceil(Math.sqrt(count))
+        const cols = Math.ceil(count / rows)
+        // 网格间隙：固定视觉间隙，空间不足时收缩（保证至少 4px）
+        const gap = Math.max(4, Math.min(16, Math.floor(area.width / (cols + 2)), Math.floor(area.height / (count + 2))))
+        // 按列分组：依次放入当前自然总高最小的列（瀑布式分配，整体高度最均衡）
+        const columns: PanelWithSize[][] = Array.from({ length: cols }, () => [])
+        const columnHeights = new Array<number>(cols).fill(0)
+        for (const item of items) {
+            let target = 0
+            for (let c = 1; c < cols; c++) {
+                if ((columnHeights[c] ?? 0) < (columnHeights[target] ?? 0)) target = c
+            }
+            columns[target]?.push(item)
+            columnHeights[target] = (columnHeights[target] ?? 0) + item.height
+        }
+
+        // 列宽均分工区宽度（扣除两侧与列间间隙）
+        const columnWidth = Math.max((area.width - gap * (cols + 1)) / cols, 0)
+        columns.forEach((list, c) => {
+            // 列内高度按各窗口自然高度的比例分摊（扣除间隙后恰好铺满一列），保持窗口间的大小差异
+            const naturalTotal = list.reduce((sum, item) => sum + item.height, 0) || 1
+            const fillHeight = Math.max(area.height - gap * (list.length + 1), 0)
+            const x = area.x + gap + c * (columnWidth + gap)
+            let y = area.y + gap
+            for (const item of list) {
+                const height = Math.max(item.height / naturalTotal * fillHeight, 48)
+                item.panel.arrange({ x, y, width: columnWidth, height })
+                y += height + gap
+            }
+        })
+    }
+
     /** 最小化全部面板 */
     function minimizeAllPanels() {
         panels.value.forEach(panel => panel.minimize())
@@ -199,5 +261,5 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         ;[...panels.value].forEach(panel => panel.close())
     }
 
-    return { activeId, panels, layoutTick, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel, cascadePanels, stackPanels, sideBySidePanels, minimizeAllPanels, closeAllPanels, bumpLayout }
+    return { activeId, panels, layoutTick, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel, cascadePanels, stackPanels, sideBySidePanels, gridPanels, minimizeAllPanels, closeAllPanels, bumpLayout }
 })
