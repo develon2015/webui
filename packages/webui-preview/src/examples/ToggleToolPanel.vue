@@ -4,6 +4,7 @@ import logo from '@/assets/icons/build.svg'
 import { ref } from 'vue'
 
 const showPanel = ref(true)
+const panelRef = ref<InstanceType<typeof ToolPanel> | null>(null)
 
 const toggleShowPanel = () => {
   showPanel.value = !showPanel.value
@@ -12,11 +13,11 @@ const toggleShowPanel = () => {
 
 <template>
   <main>
-    <ToolPanel v-if="showPanel" class="panel1" title="Tool Panel" :icon="logo" @close="toggleShowPanel">
+    <ToolPanel v-if="showPanel" ref="panelRef" class="panel1" title="Tool Panel" :icon="logo" @close="toggleShowPanel">
       <h1>Hello Tool Panel!</h1>
     </ToolPanel>
 
-    <ToolPanel theme="sci-fi" class="panel2" title="Tool Panel Control" :icon="logo">
+    <ToolPanel theme="sci-fi" class="panel2" title="Tool Panel Control" :icon="logo" :parent="panelRef?.id">
       <button @click="toggleShowPanel">Toggle</button>
     </ToolPanel>
   </main>

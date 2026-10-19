@@ -29,7 +29,8 @@ export interface PanelEntry {
     restore: () => void
     /** 将面板移动到视口中心并置顶 */
     center: () => void
-    /** 将面板排列到指定矩形（x/y 为视口坐标，width/height 省略时恢复自然尺寸） */
+    /** 将面板排列到指定矩形（x/y 为视口坐标，width/height 省略时保持当前尺寸；
+     *  测量类排列（堆叠 / 并排 / 平铺）需以自然尺寸为基准，请先经 restoreSize 归位再测量） */
     arrange: (rect: { x: number, y: number, width?: number, height?: number }) => void
     /** 恢复面板自然尺寸（清空平铺写入的尺寸，供测量类排列先归位再测量） */
     restoreSize: () => void
@@ -219,9 +220,12 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         const count = items.length
         if (!count) return
         const rows = Math.ceil(Math.sqrt(count))
-        const cols = Math.ceil(count / rows)
+        let cols = Math.ceil(count / rows)
         // 网格间隙：固定视觉间隙，空间不足时收缩（保证至少 4px）
         const gap = Math.max(4, Math.min(16, Math.floor(area.width / (cols + 2)), Math.floor(area.height / (count + 2))))
+        // 列宽不得低于面板 CSS min-width（240px，见 ToolPanel.vue），放不下时减少列数（列内窗口相应变多）
+        const maxCols = Math.max(1, Math.floor((area.width - gap) / (240 + gap)))
+        cols = Math.min(cols, maxCols)
         // 按列分组：依次放入当前自然总高最小的列（瀑布式分配，整体高度最均衡）
         const columns: PanelWithSize[][] = Array.from({ length: cols }, () => [])
         const columnHeights = new Array<number>(cols).fill(0)
