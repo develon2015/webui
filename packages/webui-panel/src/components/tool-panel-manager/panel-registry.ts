@@ -209,16 +209,11 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         }
     }
 
-    /** 平铺显示所有未最小化面板（任务栏菜单"平铺显示窗口"）：二维网格瀑布式平铺
-     *  行数取 ceil(√n)（尽量方正、行数优先），窗口按注册顺序依次分给"当前自然总高最小"的列
-     *  （高度相同时取靠左的列），使各列高度最均衡；随后把窗口缩放填充网格：
-     *  列宽均分工区宽度，列内高度按各窗口自然高度的比例分摊，整体铺满工作区 */
-    async function gridPanels(area: WorkArea) {
-        // 先恢复自然尺寸：连续平铺时以同一基准计算比例，效果与首次平铺一致
-        await restoreVisibleSizes()
-        const items = visibleSizes()
+    /** 计算二维网格平铺的公共布局参数：
+     *  行数取 ceil(√n)（尽量方正、行数优先），窗口按注册顺序依次分给"当前总高最小"的列
+     *  （高度相同时取靠左的列），使各列高度最均衡；列宽均分工区宽度 */
+    function computeGridLayout(items: PanelWithSize[], area: WorkArea) {
         const count = items.length
-        if (!count) return
         const rows = Math.ceil(Math.sqrt(count))
         let cols = Math.ceil(count / rows)
         // 网格间隙：固定视觉间隙，空间不足时收缩（保证至少 4px）
@@ -226,7 +221,7 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         // 列宽不得低于面板 CSS min-width（240px，见 ToolPanel.vue），放不下时减少列数（列内窗口相应变多）
         const maxCols = Math.max(1, Math.floor((area.width - gap) / (240 + gap)))
         cols = Math.min(cols, maxCols)
-        // 按列分组：依次放入当前自然总高最小的列（瀑布式分配，整体高度最均衡）
+        // 按列分组：依次放入当前总高最小的列（瀑布式分配，整体高度最均衡）
         const columns: PanelWithSize[][] = Array.from({ length: cols }, () => [])
         const columnHeights = new Array<number>(cols).fill(0)
         for (const item of items) {
@@ -237,9 +232,19 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
             columns[target]?.push(item)
             columnHeights[target] = (columnHeights[target] ?? 0) + item.height
         }
-
         // 列宽均分工区宽度（扣除两侧与列间间隙）
         const columnWidth = Math.max((area.width - gap * (cols + 1)) / cols, 0)
+        return { gap, columnWidth, columns }
+    }
+
+    /** 平铺显示所有未最小化面板（任务栏菜单"平铺显示窗口"）：二维网格瀑布式平铺，
+     *  把窗口缩放填充网格：列内高度按各窗口自然高度的比例分摊，整体铺满工作区 */
+    async function gridPanels(area: WorkArea) {
+        // 先恢复自然尺寸：连续平铺时以同一基准计算比例，效果与首次平铺一致
+        await restoreVisibleSizes()
+        const items = visibleSizes()
+        if (!items.length) return
+        const { gap, columnWidth, columns } = computeGridLayout(items, area)
         columns.forEach((list, c) => {
             // 列内高度按各窗口自然高度的比例分摊（扣除间隙后恰好铺满一列），保持窗口间的大小差异
             const naturalTotal = list.reduce((sum, item) => sum + item.height, 0) || 1
@@ -259,11 +264,32 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         panels.value.forEach(panel => panel.minimize())
     }
 
+    /** 显示全部面板（任务栏菜单"显示全部窗口"）：还原所有最小化的面板，
+     *  并模拟平铺显示做二维网格排列——只定位不缩放，各面板保持自然尺寸，
+     *  在所在列的网格单元内水平居中、纵向按实际高度依次下排 */
+    async function showAllPanels(area: WorkArea) {
+        panels.value.forEach(panel => panel.minimized() && panel.restore())
+        // 等恢复面板自然尺寸生效后，visibleSizes() 读到的才是各面板的自然尺寸
+        await restoreVisibleSizes()
+        const items = visibleSizes()
+        if (!items.length) return
+        const { gap, columnWidth, columns } = computeGridLayout(items, area)
+        columns.forEach((list, c) => {
+            const cellX = area.x + gap + c * (columnWidth + gap)
+            let y = area.y + gap
+            for (const item of list) {
+                const x = cellX + Math.max((columnWidth - item.width) / 2, 0)
+                item.panel.arrange({ x, y })
+                y += item.height + gap
+            }
+        })
+    }
+
     /** 关闭全部面板 */
     function closeAllPanels() {
         // 快照遍历：close 会触发面板卸载并同步注销，修改 panels 数组
         ;[...panels.value].forEach(panel => panel.close())
     }
 
-    return { activeId, panels, layoutTick, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel, cascadePanels, stackPanels, sideBySidePanels, gridPanels, minimizeAllPanels, closeAllPanels, bumpLayout }
+    return { activeId, panels, layoutTick, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel, cascadePanels, stackPanels, sideBySidePanels, gridPanels, minimizeAllPanels, showAllPanels, closeAllPanels, bumpLayout }
 })

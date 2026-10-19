@@ -43,6 +43,7 @@
         <div class="menu-item" @click="onGridWindows">平铺显示窗口(<span class="accel">T</span>)</div>
         <div class="menu-item" @click="onStackWindows">堆叠显示窗口(<span class="accel">E</span>)</div>
         <div class="menu-item" @click="onSideBySideWindows">并排显示窗口(<span class="accel">I</span>)</div>
+        <div class="menu-item" @click="onShowAllWindows">显示全部窗口</div>
         <div class="menu-item" @click="onMinimizeAllWindows">最小化全部窗口</div>
         <div class="menu-item" @click="onCloseAllWindows">关闭全部窗口</div>
       </div>
@@ -251,9 +252,9 @@ function openMenu(e: MouseEvent, panelId: number) {
 // 在光标位置打开任务栏右键菜单（任务栏空白处右键 / Shift+右键任务项）
 function openBarMenu(e: MouseEvent) {
   claimMenus() // 关闭其它实例已打开的菜单，保证全局同时只显示一个菜单
-  // 防止菜单超出视口（6 个菜单项约高 190px）
+  // 防止菜单超出视口（7 个菜单项约高 220px）
   barMenu.x = Math.min(e.clientX, window.innerWidth - 152)
-  barMenu.y = Math.min(e.clientY, window.innerHeight - 190)
+  barMenu.y = Math.min(e.clientY, window.innerHeight - 220)
   barMenu.visible = true
 }
 
@@ -341,6 +342,12 @@ function onGridWindows() {
 // 菜单项"最小化全部窗口"
 function onMinimizeAllWindows() {
   registry.minimizeAllPanels()
+  hideBarMenu()
+}
+
+// 菜单项"显示全部窗口"：还原所有最小化的面板，并按自然尺寸做网格排列
+function onShowAllWindows() {
+  registry.showAllPanels(getWorkArea())
   hideBarMenu()
 }
 
