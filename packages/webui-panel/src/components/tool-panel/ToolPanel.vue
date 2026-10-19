@@ -87,8 +87,8 @@ const scoped = useScopedAttrs()
 // 面板根元素
 const panelRef = ref<HTMLElement>()
 // 拖动实现：按住标题栏拖动面板，位移样式（含外部 transform 合并）由 useDragMove 提供；
-// center 用于将面板移动到视口中心（与拖动偏移共用同一套位移状态）
-const { style: dragStyle, onHandlePointerDown, center: dragCenter } = useDragMove({
+// center 用于将面板移动到视口中心，moveTo 用于移动到任意位置（与拖动偏移共用同一套位移状态）
+const { style: dragStyle, onHandlePointerDown, center: dragCenter, moveTo: dragMoveTo } = useDragMove({
   target: panelRef,
   enabled: () => props.draggable,
   ignore: e => !!(e.target as HTMLElement).closest('.op-btn'),
@@ -156,6 +156,21 @@ async function center() {
   registry.bumpLayout()
 }
 
+// 排列面板到指定矩形（层叠 / 堆叠 / 并排窗口时由任务栏调用）：
+// 取消最小化并置顶，位置移动到 rect.x/y；width/height 提供时以内联样式设定尺寸
+// （内联尺寸不在 :style 绑定内，不会被 Vue 的样式 patch 覆盖）
+async function arrange(rect: { x: number, y: number, width?: number, height?: number }) {
+  if (minimized.value) minimized.value = false
+  zIndex.value = zIndexStore.tapZIndex()
+  registry.setActive(panelId.value)
+  // 等最小化状态渲染完成后，useDragMove 才能读到面板的有效矩形
+  await nextTick()
+  dragMoveTo(rect.x, rect.y)
+  if (rect.width != null) panelRef.value?.style.setProperty('width', `${rect.width}px`)
+  if (rect.height != null) panelRef.value?.style.setProperty('height', `${rect.height}px`)
+  registry.bumpLayout()
+}
+
 // 挂载后登记到面板注册表，任务栏即可罗列本面板
 onMounted(() => {
   panelId.value = registry.register({
@@ -169,6 +184,7 @@ onMounted(() => {
     minimize,
     restore,
     center,
+    arrange,
     close,
   })
 })
@@ -178,8 +194,8 @@ onBeforeUnmount(() => {
   registry.unregister(panelId.value)
 })
 
-// 暴露实例成员：id 供子面板作为 parent prop 引用；方法供父组件手动最小化 / 还原 / 居中 / 关闭
-defineExpose({ id: panelId, minimize, restore, center, close })
+// 暴露实例成员：id 供子面板作为 parent prop 引用；方法供父组件手动最小化 / 还原 / 居中 / 排列 / 关闭
+defineExpose({ id: panelId, minimize, restore, center, arrange, close })
 </script>
 
 <style lang="scss" scoped>

@@ -1,6 +1,6 @@
 <template>
   <!-- 主题类名切换任务栏配色变量；vertical 类切换为竖排布局 -->
-  <div ref="barRef" class="tool-panel-manager" :class="[`theme-${theme}`, { vertical: mode === 'vertical' }]" @wheel="onBarWheel">
+  <div ref="barRef" class="tool-panel-manager" :class="[`theme-${theme}`, { vertical: mode === 'vertical' }]" @wheel="onBarWheel" @contextmenu.prevent.stop="openBarMenu">
     <!-- 任务栏：罗列所有面板实例；按住任务项拖动可调整顺序 -->
     <div
       v-for="panel in registry.panels"
@@ -11,7 +11,7 @@
       :title="panel.title()"
       @pointerdown="onItemPointerDown($event, panel)"
       @click="onTaskItemClick(panel)"
-      @contextmenu.prevent.stop="openMenu($event, panel.id)"
+      @contextmenu.prevent.stop="onItemContextMenu($event, panel.id)"
     >
       <!-- 图标：与面板标题栏图标同步显示，未设置时显示默认色块 -->
       <img v-if="panel.icon() && resolvePanelIconType(panel.icon()) === 'img'" class="taskbar-icon is-img" :src="panel.icon()" alt="" @pointerdown.prevent draggable="false">
@@ -26,12 +26,24 @@
 
     <!-- 右键菜单（Teleport 到 body，需单独绑定主题类名以继承配色变量） -->
     <Teleport to="body">
-      <div v-if="menu.visible" class="context-menu" :class="`theme-${theme}`" :style="{ left: `${menu.x}px`, top: `${menu.y}px` }">
+      <div v-if="menu.visible" class="context-menu" :class="`theme-${theme}`" :style="{ left: `${menu.x}px`, top: `${menu.y}px` }" @contextmenu.prevent.stop>
         <!-- 菜单项随面板最小化状态切换：最小化窗口 / 还原窗口 -->
         <div v-if="isMenuPanelMinimized()" class="menu-item" @click="onRestoreWindow">还原窗口</div>
         <div v-else class="menu-item" @click="onMinimizeWindow">最小化窗口</div>
         <div class="menu-item" @click="onCenterWindow">居中显示</div>
         <div class="menu-item" @click="onCloseWindow">关闭窗口</div>
+      </div>
+    </Teleport>
+
+    <!-- 任务栏右键菜单（Teleport 到 body，需单独绑定主题类名以继承配色变量）：
+         空白处右键打开；Shift+右键任务项同样打开；快捷键字母带 Windows 风格下划线 -->
+    <Teleport to="body">
+      <div v-if="barMenu.visible" class="context-menu" :class="`theme-${theme}`" :style="{ left: `${barMenu.x}px`, top: `${barMenu.y}px` }" @contextmenu.prevent.stop>
+        <div class="menu-item" @click="onCascadeWindows">层叠窗口(<span class="accel">D</span>)</div>
+        <div class="menu-item" @click="onStackWindows">堆叠显示窗口(<span class="accel">E</span>)</div>
+        <div class="menu-item" @click="onSideBySideWindows">并排显示窗口(<span class="accel">I</span>)</div>
+        <div class="menu-item" @click="onMinimizeAllWindows">最小化全部窗口</div>
+        <div class="menu-item" @click="onCloseAllWindows">关闭全部窗口</div>
       </div>
     </Teleport>
 
@@ -215,8 +227,12 @@ watch(() => registry.panels.map(panel => panel.id).join(','), () => {
 // 右键菜单状态：是否显示、屏幕坐标、菜单指向的面板
 const menu = reactive({ visible: false, x: 0, y: 0, panelId: 0 })
 
+// 任务栏右键菜单状态（窗口排列等全局操作）
+const barMenu = reactive({ visible: false, x: 0, y: 0 })
+
 // 在光标位置打开某面板的右键菜单
 function openMenu(e: MouseEvent, panelId: number) {
+  barMenu.visible = false // 保证同时只显示一个菜单
   menu.panelId = panelId
   // 防止菜单超出视口（3 个菜单项约高 100px）
   menu.x = Math.min(e.clientX, window.innerWidth - 152)
@@ -224,9 +240,32 @@ function openMenu(e: MouseEvent, panelId: number) {
   menu.visible = true
 }
 
+// 在光标位置打开任务栏右键菜单（任务栏空白处右键 / Shift+右键任务项）
+function openBarMenu(e: MouseEvent) {
+  menu.visible = false // 保证同时只显示一个菜单
+  // 防止菜单超出视口（5 个菜单项约高 160px）
+  barMenu.x = Math.min(e.clientX, window.innerWidth - 152)
+  barMenu.y = Math.min(e.clientY, window.innerHeight - 160)
+  barMenu.visible = true
+}
+
+// 任务项右键：按住 Shift 打开任务栏菜单，否则打开该面板的菜单
+function onItemContextMenu(e: MouseEvent, panelId: number) {
+  if (e.shiftKey) {
+    openBarMenu(e)
+  } else {
+    openMenu(e, panelId)
+  }
+}
+
 // 关闭右键菜单
 function hideMenu() {
   menu.visible = false
+}
+
+// 关闭任务栏右键菜单
+function hideBarMenu() {
+  barMenu.visible = false
 }
 
 // 菜单项"关闭窗口"：关闭菜单所指向的面板
@@ -258,6 +297,45 @@ function isMenuPanelMinimized() {
   return registry.panels.find(panel => panel.id === menu.panelId)?.minimized() ?? false
 }
 
+// 计算窗口排列的工作区（扣除任务栏自身占位）
+function getWorkArea() {
+  if (props.mode === 'vertical') {
+    const width = barRef.value?.offsetWidth ?? 0
+    return { x: width, y: 0, width: window.innerWidth - width, height: window.innerHeight }
+  }
+  return { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight - 40 }
+}
+
+// 菜单项"层叠窗口"：所有未最小化面板沿右下层叠排列（尺寸不变）
+function onCascadeWindows() {
+  registry.cascadePanels(getWorkArea())
+  hideBarMenu()
+}
+
+// 菜单项"堆叠显示窗口"：所有未最小化面板沿纵向等分平铺
+function onStackWindows() {
+  registry.stackPanels(getWorkArea())
+  hideBarMenu()
+}
+
+// 菜单项"并排显示窗口"：所有未最小化面板沿横向等分平铺
+function onSideBySideWindows() {
+  registry.sideBySidePanels(getWorkArea())
+  hideBarMenu()
+}
+
+// 菜单项"最小化全部窗口"
+function onMinimizeAllWindows() {
+  registry.minimizeAllPanels()
+  hideBarMenu()
+}
+
+// 菜单项"关闭全部窗口"
+function onCloseAllWindows() {
+  registry.closeAllPanels()
+  hideBarMenu()
+}
+
 // 任务栏点击：还原已最小化面板并置顶；点击当前激活面板则最小化（类 Windows 行为）；否则置顶
 function onTaskItemClick(panel: PanelEntry) {
   // 拖动排序结束后的 click 不触发置顶 / 最小化
@@ -271,21 +349,27 @@ function onTaskItemClick(panel: PanelEntry) {
   }
 }
 
-// 菜单显示期间监听全局 click / contextmenu：
-// 点击任意处或再次右键时自动关闭菜单（打开菜单的事件已 .stop，不会立即触发隐藏）
-watch(() => menu.visible, (visible) => {
+// 任一菜单显示期间监听全局 click / contextmenu：
+// 点击任意处或再次右键时自动关闭所有菜单（打开菜单的事件已 .stop，不会立即触发隐藏）
+watch(() => menu.visible || barMenu.visible, (visible) => {
   if (visible) {
-    document.addEventListener('click', hideMenu)
-    document.addEventListener('contextmenu', hideMenu)
+    document.addEventListener('click', hideAllMenus)
+    document.addEventListener('contextmenu', hideAllMenus)
   } else {
-    document.removeEventListener('click', hideMenu)
-    document.removeEventListener('contextmenu', hideMenu)
+    document.removeEventListener('click', hideAllMenus)
+    document.removeEventListener('contextmenu', hideAllMenus)
   }
 })
 
+// 关闭所有右键菜单
+function hideAllMenus() {
+  menu.visible = false
+  barMenu.visible = false
+}
+
 // 卸载时关闭菜单并结束拖动排序，随之移除全局监听
 onBeforeUnmount(() => {
-  hideMenu()
+  hideAllMenus()
   stopItemDrag()
 })
 </script>
@@ -497,6 +581,11 @@ onBeforeUnmount(() => {
     color: var(--menu-color);
     cursor: pointer;
     user-select: none;
+
+    // Windows 风格的快捷键字母下划线
+    .accel {
+      text-decoration: underline;
+    }
 
     &:hover {
       background: var(--menu-hover-bg);

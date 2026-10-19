@@ -29,8 +29,18 @@ export interface PanelEntry {
     restore: () => void
     /** 将面板移动到视口中心并置顶 */
     center: () => void
+    /** 将面板排列到指定矩形（x/y 为视口坐标，width/height 省略时保持当前尺寸） */
+    arrange: (rect: { x: number, y: number, width?: number, height?: number }) => void
     /** 关闭面板 */
     close: () => void
+}
+
+/** 视口工作区（扣除任务栏后的可排列区域） */
+export interface WorkArea {
+    x: number
+    y: number
+    width: number
+    height: number
 }
 
 export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
@@ -108,5 +118,86 @@ export const usePanelRegistryStore = defineStore('tool-panel-registry', () => {
         panels.value.splice(Math.min(Math.max(toIndex, 0), panels.value.length), 0, moved)
     }
 
-    return { activeId, panels, layoutTick, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel, bumpLayout }
+    /** 未最小化的面板列表（窗口排列只作用于可见窗口） */
+    function visiblePanels() {
+        return panels.value.filter(panel => !panel.minimized())
+    }
+
+    /** 层叠所有未最小化面板（任务栏菜单"层叠窗口"）：沿右下依次偏移，尺寸保持不变，超出工作区后回绕 */
+    function cascadePanels(area: WorkArea) {
+        const step = 30
+        let x = area.x + 16
+        let y = area.y + 16
+        visiblePanels().forEach((panel) => {
+            panel.arrange({ x, y })
+            x += step
+            y += step
+            // 右下方向容不下一个最小尺寸面板（约 240x120）时回到工作区起点继续层叠
+            if (x + 240 > area.x + area.width || y + 120 > area.y + area.height) {
+                x = area.x + 16
+                y = area.y + 16
+            }
+        })
+    }
+
+    /** 未最小化面板及其当前尺寸（平铺按实际窗口大小计算，跳过读不到矩形的面板） */
+    function visibleSizes() {
+        const items: { panel: PanelEntry, width: number, height: number }[] = []
+        for (const panel of visiblePanels()) {
+            const rect = panel.el()?.getBoundingClientRect()
+            if (rect && rect.width > 0 && rect.height > 0) {
+                items.push({ panel, width: rect.width, height: rect.height })
+            }
+        }
+        return items
+    }
+
+    /** 堆叠显示所有未最小化面板（任务栏菜单"堆叠显示窗口"）：尺寸不变，按实际窗口大小沿纵向平铺 */
+    function stackPanels(area: WorkArea) {
+        tilePanels(area, true)
+    }
+
+    /** 并排显示所有未最小化面板（任务栏菜单"并排显示窗口"）：尺寸不变，按实际窗口大小沿横向平铺 */
+    function sideBySidePanels(area: WorkArea) {
+        tilePanels(area, false)
+    }
+
+    /** 沿单一方向平铺窗口（vertical=true 纵向堆叠 / false 横向并排）：
+     *  窗口尺寸保持不变；主轴剩余空间均分为间隙（不足时间距为负，窗口均匀重叠恰好填满工区），
+     *  交叉方向在工区内居中 */
+    function tilePanels(area: WorkArea, vertical: boolean) {
+        const items = visibleSizes()
+        const count = items.length
+        if (!count) return
+        const total = items.reduce((sum, item) => sum + (vertical ? item.height : item.width), 0)
+        const extent = vertical ? area.height : area.width
+        const free = extent - total
+        // 富余：按 count+1 份均分（首尾各留一份）；不足：按 count-1 份均分为负间距
+        const gap = free >= 0 ? free / (count + 1) : count > 1 ? free / (count - 1) : 0
+        const origin = vertical ? area.y : area.x
+        let pos = origin + (free >= 0 ? gap : 0)
+        for (const item of items) {
+            const crossOffset = vertical
+                ? Math.max((area.width - item.width) / 2, 0)
+                : Math.max((area.height - item.height) / 2, 0)
+            const rect = vertical
+                ? { x: area.x + crossOffset, y: pos }
+                : { x: pos, y: area.y + crossOffset }
+            item.panel.arrange(rect)
+            pos += (vertical ? item.height : item.width) + gap
+        }
+    }
+
+    /** 最小化全部面板 */
+    function minimizeAllPanels() {
+        panels.value.forEach(panel => panel.minimize())
+    }
+
+    /** 关闭全部面板 */
+    function closeAllPanels() {
+        // 快照遍历：close 会触发面板卸载并同步注销，修改 panels 数组
+        ;[...panels.value].forEach(panel => panel.close())
+    }
+
+    return { activeId, panels, layoutTick, register, unregister, setActive, tapPanel, closePanel, minimizePanel, restorePanel, centerPanel, movePanel, cascadePanels, stackPanels, sideBySidePanels, minimizeAllPanels, closeAllPanels, bumpLayout }
 })
