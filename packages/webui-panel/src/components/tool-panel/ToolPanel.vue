@@ -41,6 +41,17 @@
       <div class="panel-body">
         <slot name="default"></slot>
       </div>
+      <!-- 尺寸调整手柄：覆盖边缘 / 四角的透明热区，按住拖动调整面板尺寸（resizable=false 时不渲染） -->
+      <template v-if="resizable">
+        <div class="resize-handle n" @pointerdown.stop="onResizeHandlePointerDown($event, 'n')"></div>
+        <div class="resize-handle s" @pointerdown.stop="onResizeHandlePointerDown($event, 's')"></div>
+        <div class="resize-handle e" @pointerdown.stop="onResizeHandlePointerDown($event, 'e')"></div>
+        <div class="resize-handle w" @pointerdown.stop="onResizeHandlePointerDown($event, 'w')"></div>
+        <div class="resize-handle ne" @pointerdown.stop="onResizeHandlePointerDown($event, 'ne')"></div>
+        <div class="resize-handle nw" @pointerdown.stop="onResizeHandlePointerDown($event, 'nw')"></div>
+        <div class="resize-handle se" @pointerdown.stop="onResizeHandlePointerDown($event, 'se')"></div>
+        <div class="resize-handle sw" @pointerdown.stop="onResizeHandlePointerDown($event, 'sw')"></div>
+      </template>
     </div>
   </Teleport>
 </template>
@@ -52,14 +63,17 @@ import { usePanelRegistryStore } from '../tool-panel-manager/panel-registry'
 import { resolvePanelIconType } from './icon'
 import { useScopedAttrs } from '@/composables/useScopedAttrs';
 import { useDragMove } from '@/composables/useDragMove'
+import { useDragResize } from '@/composables/useDragResize'
 
 type SideButton = 'setting' | 'menu' | 'min' | 'close'
 
-// 组件属性：标题、显示哪些操作按钮、是否可拖动、面板图标
+// 组件属性：标题、显示哪些操作按钮、是否可拖动、是否可调整尺寸、面板图标
 const props = withDefaults(defineProps<{
   title: string
   btns?: SideButton[]
   draggable?: boolean
+  /** 是否允许拖拽边缘 / 四角调整面板尺寸（类 Windows 行为，最小 240x80） */
+  resizable?: boolean
   /** 面板图标：内联 svg 字符串 / 图片地址（http、data、相对路径等）/ emoji 等文本；为空时显示默认色块，任务栏同步显示。内联 svg 通过 v-html 渲染，请勿传入不可信内容 */
   icon?: string
   /** 主题：'dark' 绝对黑暗黑风格（默认）；'sci-fi' 蓝色科幻风格 */
@@ -69,6 +83,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   btns: () => ['setting', 'menu', 'min', 'close'],
   draggable: true,
+  resizable: true,
   icon: '',
   theme: 'dark',
   parent: 0,
@@ -88,14 +103,31 @@ const scoped = useScopedAttrs()
 // 面板根元素
 const panelRef = ref<HTMLElement>()
 // 拖动实现：按住标题栏拖动面板，位移样式（含外部 transform 合并）由 useDragMove 提供；
-// center 用于将面板移动到视口中心，moveTo 用于移动到任意位置（与拖动偏移共用同一套位移状态）
-const { style: dragStyle, onHandlePointerDown, center: dragCenter, moveTo: dragMoveTo } = useDragMove({
+// center 用于将面板移动到视口中心，moveTo 用于移动到任意位置（与拖动偏移共用同一套位移状态）；
+// beginScreenSpaceMove / translateBy 供尺寸调整补偿位置使用
+const { style: dragStyle, onHandlePointerDown, center: dragCenter, moveTo: dragMoveTo, beginScreenSpaceMove: dragBeginScreenSpaceMove, translateBy: dragTranslateBy } = useDragMove({
   target: panelRef,
   enabled: () => props.draggable,
   ignore: e => !!(e.target as HTMLElement).closest('.op-btn'),
   onDragStart: tapToTop,
   // 拖动位移变化时通知注册表（层级连线层据此重绘）
   onDragMove: () => registry.bumpLayout(),
+})
+
+// 尺寸调整：按住边缘 / 四角手柄拖动改变面板宽高；
+// 尺寸写入与排列相同的 arrangedSize 通道（经样式绑定输出，窗口排列时自然恢复）
+const { onHandlePointerDown: onResizeHandlePointerDown } = useDragResize({
+  target: panelRef,
+  enabled: () => props.resizable,
+  minWidth: 240,
+  minHeight: 80,
+  beginScreenSpaceMove: dragBeginScreenSpaceMove,
+  translateBy: dragTranslateBy,
+  onResize: (width, height) => {
+    arrangedSize.value = { width: `${width}px`, height: `${height}px` }
+    // 尺寸变化通知注册表（层级连线层据此重绘）
+    registry.bumpLayout()
+  },
 })
 
 // 计算面板根节点的样式：拖动位移样式 + 排列尺寸 + 全局 z-index 动态更新
@@ -379,6 +411,25 @@ defineExpose({ id: panelId, minimize, restore, center, arrange, close })
 
   .panel-body {
     padding: 14px;
+  }
+
+  // 尺寸调整手柄：贴边的透明热区，光标随方向变化（Windows 风格八方向调整）
+  .resize-handle {
+    position: absolute;
+    z-index: 2147483646;
+    // 禁用触摸滚动等默认手势，避免移动端拖拽被浏览器接管而中断
+    touch-action: none;
+    // 缩放处理：如果尺寸调整不易触发，可缩放处理
+    transform: scale(1.5);
+
+    &.n { top: 0; left: 10px; right: 10px; height: 5px; cursor: n-resize; }
+    &.s { bottom: 0; left: 10px; right: 10px; height: 5px; cursor: s-resize; }
+    &.e { top: 10px; bottom: 10px; right: 0; width: 5px; cursor: e-resize; }
+    &.w { top: 10px; bottom: 10px; left: 0; width: 5px; cursor: w-resize; }
+    &.ne { top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; }
+    &.nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nw-resize; }
+    &.se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: se-resize; }
+    &.sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; }
   }
 }
 </style>

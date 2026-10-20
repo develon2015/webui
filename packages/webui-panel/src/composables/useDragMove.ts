@@ -91,14 +91,26 @@ export function useDragMove(options: UseDragMoveOptions) {
     if (!el) return
 
     options.onDragStart?.(e)
+    // 旧内联 transform 下的视觉矩形（含外部 transform 的渲染位置）
+    const rect = el.getBoundingClientRect()
     // 快照外部 transform，拖动位移将前置拼接到它之前
     externalTransform.value = captureExternalTransform(el)
     hasDragged.value = true
     willChange.value = 'transform'
 
+    // 以"视觉位置 - 净位置"绝对重算位移：面板尺寸可能在上次外部快照之后被调整过，
+    // 旧内联 transform 里烘焙的外部矩阵（按旧尺寸解析）与刚快照的新矩阵存在差值，
+    // 不重算的话抓取瞬间会发生位置跳变
+    const ownTransform = el.style.transform
+    el.style.transform = ''
+    const cleanLeft = el.getBoundingClientRect().left
+    const cleanTop = el.getBoundingClientRect().top
+    el.style.transform = ownTransform
+    offset.x = rect.left - cleanLeft
+    offset.y = rect.top - cleanTop
+
     // 根据元素当前位置与视口尺寸，计算本次拖动的偏移范围，防止元素拖出视口
     // （rect 为渲染后矩形，已包含外部 transform；translate 前置为屏幕空间平移，边界计算依然成立）
-    const rect = el.getBoundingClientRect()
     const baseLeft = rect.left - offset.x
     const baseTop = rect.top - offset.y
     minOffsetX = -baseLeft
@@ -149,8 +161,33 @@ export function useDragMove(options: UseDragMoveOptions) {
     moveTo((window.innerWidth - rect.width) / 2, (window.innerHeight - rect.height) / 2)
   }
 
+  // 开始屏幕空间平移（调整尺寸等场景调用）：快照外部 transform 并启用位移输出。
+  // 外部 -50% 类位移被烘焙为固定像素后，后续尺寸变化不再影响视觉左上角位置；
+  // 面板尺寸可能在上次烘焙之后又被调整过，重新快照的矩阵与旧矩阵存在差值，
+  // 需以"视觉位置 - 净位置"绝对重算位移，保证再次调整尺寸的抓取瞬间不发生跳变
+  function beginScreenSpaceMove() {
+    const el = options.target.value
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    externalTransform.value = captureExternalTransform(el)
+    hasDragged.value = true
+    const ownTransform = el.style.transform
+    el.style.transform = ''
+    const cleanLeft = el.getBoundingClientRect().left
+    const cleanTop = el.getBoundingClientRect().top
+    el.style.transform = ownTransform
+    offset.x = rect.left - cleanLeft
+    offset.y = rect.top - cleanTop
+  }
+
+  // 平移当前位移（调整尺寸时补偿位置，保持对侧边缘不动）
+  function translateBy(dx: number, dy: number) {
+    offset.x += dx
+    offset.y += dy
+  }
+
   // 卸载前移除拖动事件监听
   onBeforeUnmount(onPointerUp)
 
-  return { style, onHandlePointerDown, center, moveTo }
+  return { style, onHandlePointerDown, center, moveTo, beginScreenSpaceMove, translateBy }
 }
