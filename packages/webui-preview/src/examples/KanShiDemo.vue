@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { ToolPanel, ToolPanelHierarchy } from '@develon/webui-panel'
 import debugIcon from '@/assets/icons/debug.svg'
 
-const panelRef = ref<InstanceType<typeof ToolPanel> | null>(null)
+const panelRef = ref<InstanceType<typeof ToolPanel>>()
 
 const arts = [
   {

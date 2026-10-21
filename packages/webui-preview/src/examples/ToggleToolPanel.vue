@@ -4,7 +4,7 @@ import logo from '@/assets/icons/build.svg'
 import { ref } from 'vue'
 
 const showPanel = ref(true)
-const panelRef = ref<InstanceType<typeof ToolPanel> | null>(null)
+const panelRef = ref<InstanceType<typeof ToolPanel>>()
 
 const toggleShowPanel = () => {
   showPanel.value = !showPanel.value

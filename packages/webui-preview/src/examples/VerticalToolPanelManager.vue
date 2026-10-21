@@ -2,6 +2,13 @@
 import { ToolPanel, ToolPanelManager } from '@develon/webui-panel'
 import buildIcon from '@/assets/icons/build.svg'
 import debugIcon from '@/assets/icons/debug.svg'
+import { onMounted, ref } from 'vue'
+
+const toolPanelManagerRef = ref<InstanceType<typeof ToolPanelManager>>()
+
+onMounted(() => {
+  toolPanelManagerRef.value?.showAllWindows()
+})
 </script>
 
 <template>
@@ -24,7 +31,7 @@ import debugIcon from '@/assets/icons/debug.svg'
       </div>
     </ToolPanel>
 
-    <ToolPanelManager theme="dark" mode="vertical" class="panel-manager"></ToolPanelManager>
+    <ToolPanelManager ref="toolPanelManagerRef" theme="dark" mode="vertical" class="panel-manager"></ToolPanelManager>
   </div>
 </template>
 
