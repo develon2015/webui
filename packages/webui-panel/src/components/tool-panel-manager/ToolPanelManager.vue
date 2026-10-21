@@ -28,10 +28,10 @@
     <Teleport to="body">
       <div v-if="menu.visible" class="context-menu" :class="`theme-${theme}`" :style="{ left: `${menu.x}px`, top: `${menu.y}px` }" @contextmenu.prevent.stop>
         <!-- 菜单项随面板最小化状态切换：最小化窗口 / 还原窗口 -->
-        <div v-if="isMenuPanelMinimized()" class="menu-item" @click="onRestoreWindow">还原窗口</div>
-        <div v-else class="menu-item" @click="onMinimizeWindow">最小化窗口</div>
-        <div class="menu-item" @click="onCenterWindow">居中显示</div>
-        <div class="menu-item" @click="onCloseWindow">关闭窗口</div>
+        <div v-if="isMenuPanelMinimized()" class="menu-item" @click="onMenuClick('restore')">还原窗口</div>
+        <div v-else class="menu-item" @click="onMenuClick('minimize')">最小化窗口</div>
+        <div class="menu-item" @click="onMenuClick('center')">居中显示</div>
+        <div class="menu-item" @click="onMenuClick('close')">关闭窗口</div>
       </div>
     </Teleport>
 
@@ -39,13 +39,13 @@
          空白处右键打开；Shift+右键任务项同样打开；快捷键字母带 Windows 风格下划线 -->
     <Teleport to="body">
       <div v-if="barMenu.visible" class="context-menu" :class="`theme-${theme}`" :style="{ left: `${barMenu.x}px`, top: `${barMenu.y}px` }" @contextmenu.prevent.stop>
-        <div class="menu-item" @click="onCascadeWindows">层叠窗口(<span class="accel">D</span>)</div>
-        <div class="menu-item" @click="onGridWindows">平铺显示窗口(<span class="accel">T</span>)</div>
-        <div class="menu-item" @click="onStackWindows">堆叠显示窗口(<span class="accel">E</span>)</div>
-        <div class="menu-item" @click="onSideBySideWindows">并排显示窗口(<span class="accel">I</span>)</div>
-        <div class="menu-item" @click="onShowAllWindows">显示全部窗口</div>
-        <div class="menu-item" @click="onMinimizeAllWindows">最小化全部窗口</div>
-        <div class="menu-item" @click="onCloseAllWindows">关闭全部窗口</div>
+        <div class="menu-item" @click="onMenuClick('cascade')">层叠窗口(<span class="accel">D</span>)</div>
+        <div class="menu-item" @click="onMenuClick('grid')">平铺显示窗口(<span class="accel">T</span>)</div>
+        <div class="menu-item" @click="onMenuClick('stack')">堆叠显示窗口(<span class="accel">E</span>)</div>
+        <div class="menu-item" @click="onMenuClick('sideBySide')">并排显示窗口(<span class="accel">I</span>)</div>
+        <div class="menu-item" @click="onMenuClick('showAll')">显示全部窗口</div>
+        <div class="menu-item" @click="onMenuClick('minimizeAll')">最小化全部窗口</div>
+        <div class="menu-item" @click="onMenuClick('closeAll')">关闭全部窗口</div>
       </div>
     </Teleport>
 
@@ -267,40 +267,6 @@ function onItemContextMenu(e: MouseEvent, panelId: number) {
   }
 }
 
-// 关闭右键菜单
-function hideMenu() {
-  menu.visible = false
-}
-
-// 关闭任务栏右键菜单
-function hideBarMenu() {
-  barMenu.visible = false
-}
-
-// 菜单项"关闭窗口"：关闭菜单所指向的面板
-function onCloseWindow() {
-  registry.closePanel(menu.panelId)
-  hideMenu()
-}
-
-// 菜单项"最小化窗口"：最小化菜单所指向的面板
-function onMinimizeWindow() {
-  registry.minimizePanel(menu.panelId)
-  hideMenu()
-}
-
-// 菜单项"还原窗口"：还原菜单所指向的面板
-function onRestoreWindow() {
-  registry.restorePanel(menu.panelId)
-  hideMenu()
-}
-
-// 菜单项"居中显示"：将菜单所指向的面板移动到视口中心并置顶
-function onCenterWindow() {
-  registry.centerPanel(menu.panelId)
-  hideMenu()
-}
-
 // 菜单所指向的面板是否处于最小化状态
 function isMenuPanelMinimized() {
   return registry.panels.find(panel => panel.id === menu.panelId)?.minimized() ?? false
@@ -315,46 +281,112 @@ function getWorkArea() {
   return { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight - 40 }
 }
 
-// 菜单项"层叠窗口"：所有未最小化面板沿右下层叠排列（尺寸不变）
-function onCascadeWindows() {
+// ===== 菜单功能（面板菜单 / 任务栏菜单的菜单项回调与外部 ref 调用共用）=====
+// 面板级功能：作用于指定面板（id 可从 registry.panels 获得）
+
+/** 关闭指定面板（菜单项"关闭窗口"） */
+function closeWindow(id: number) {
+  registry.closePanel(id)
+}
+
+/** 最小化指定面板（菜单项"最小化窗口"） */
+function minimizeWindow(id: number) {
+  registry.minimizePanel(id)
+}
+
+/** 还原指定面板（取消最小化并置顶，菜单项"还原窗口"） */
+function restoreWindow(id: number) {
+  registry.restorePanel(id)
+}
+
+/** 将指定面板移动到视口中心并置顶（菜单项"居中显示"） */
+function centerWindow(id: number) {
+  registry.centerPanel(id)
+}
+
+// 任务栏级功能：作用于全部未最小化窗口（排列工作区按任务栏自身布局计算）
+
+/** 所有未最小化面板沿右下层叠排列，尺寸不变（菜单项"层叠窗口"） */
+function cascadeWindows() {
   registry.cascadePanels(getWorkArea())
-  hideBarMenu()
 }
 
-// 菜单项"堆叠显示窗口"：所有未最小化面板沿纵向等分平铺
-function onStackWindows() {
+/** 所有未最小化面板按自然尺寸沿纵向平铺（菜单项"堆叠显示窗口"） */
+function stackWindows() {
   registry.stackPanels(getWorkArea())
-  hideBarMenu()
 }
 
-// 菜单项"并排显示窗口"：所有未最小化面板沿横向等分平铺
-function onSideBySideWindows() {
+/** 所有未最小化面板按自然尺寸沿横向平铺（菜单项"并排显示窗口"） */
+function sideBySideWindows() {
   registry.sideBySidePanels(getWorkArea())
-  hideBarMenu()
 }
 
-// 菜单项"平铺显示窗口"：所有未最小化面板按实际大小做二维网格瀑布式平铺
-function onGridWindows() {
+/** 所有未最小化面板按自然尺寸做二维网格瀑布式平铺（菜单项"平铺显示窗口"） */
+function gridWindows() {
   registry.gridPanels(getWorkArea())
-  hideBarMenu()
 }
 
-// 菜单项"最小化全部窗口"
-function onMinimizeAllWindows() {
-  registry.minimizeAllPanels()
-  hideBarMenu()
-}
-
-// 菜单项"显示全部窗口"：还原所有最小化的面板，并按自然尺寸做网格排列
-function onShowAllWindows() {
+/** 还原所有最小化的面板，并按自然尺寸做网格排列（菜单项"显示全部窗口"） */
+function showAllWindows() {
   registry.showAllPanels(getWorkArea())
-  hideBarMenu()
 }
 
-// 菜单项"关闭全部窗口"
-function onCloseAllWindows() {
+/** 最小化全部面板（菜单项"最小化全部窗口"） */
+function minimizeAllWindows() {
+  registry.minimizeAllPanels()
+}
+
+/** 关闭全部面板（菜单项"关闭全部窗口"） */
+function closeAllWindows() {
   registry.closeAllPanels()
-  hideBarMenu()
+}
+
+// 菜单项动作标识：面板菜单作用于菜单所指向的面板，任务栏菜单为全局窗口操作
+type MenuAction =
+  | 'restore' | 'minimize' | 'center' | 'close'
+  | 'cascade' | 'grid' | 'stack' | 'sideBySide' | 'showAll' | 'minimizeAll' | 'closeAll'
+
+// 两个右键菜单的菜单项点击统一入口：按动作标识分发到对应功能，执行后关闭菜单
+function onMenuClick(action: MenuAction) {
+  switch (action) {
+    // 面板菜单：作用于菜单所指向的面板
+    case 'restore':
+      restoreWindow(menu.panelId)
+      break
+    case 'minimize':
+      minimizeWindow(menu.panelId)
+      break
+    case 'center':
+      centerWindow(menu.panelId)
+      break
+    case 'close':
+      closeWindow(menu.panelId)
+      break
+    // 任务栏菜单：全局窗口操作
+    case 'cascade':
+      cascadeWindows()
+      break
+    case 'grid':
+      gridWindows()
+      break
+    case 'stack':
+      stackWindows()
+      break
+    case 'sideBySide':
+      sideBySideWindows()
+      break
+    case 'showAll':
+      showAllWindows()
+      break
+    case 'minimizeAll':
+      minimizeAllWindows()
+      break
+    case 'closeAll':
+      closeAllWindows()
+      break
+  }
+  // 执行完毕关闭菜单（菜单互斥保证同时只显示一个，关闭所有即可）
+  closeAllMenus()
 }
 
 // 任务栏点击：还原已最小化面板并置顶；点击当前激活面板则最小化（类 Windows 行为）；否则置顶
@@ -394,6 +426,35 @@ function closeAllMenus() {
   barMenu.visible = false
   if (menuCloser === closeAllMenus) menuCloser = null
 }
+
+// 对外暴露菜单功能：父组件可通过组件 ref 直接调用，例如
+// const manager = ref<InstanceType<typeof ToolPanelManager>>()
+// manager.value.cascadeWindows()          // 层叠全部窗口
+// manager.value.closeWindow(panelId)      // 关闭指定面板（id 取自 manager.value.panels）
+defineExpose({
+  /** 关闭指定面板（菜单"关闭窗口"） */
+  closeWindow,
+  /** 最小化指定面板（菜单"最小化窗口"） */
+  minimizeWindow,
+  /** 还原指定面板（菜单"还原窗口"） */
+  restoreWindow,
+  /** 将指定面板移动到视口中心并置顶（菜单"居中显示"） */
+  centerWindow,
+  /** 所有未最小化面板沿右下层叠排列（菜单"层叠窗口"） */
+  cascadeWindows,
+  /** 所有未最小化面板按自然尺寸沿纵向平铺（菜单"堆叠显示窗口"） */
+  stackWindows,
+  /** 所有未最小化面板按自然尺寸沿横向平铺（菜单"并排显示窗口"） */
+  sideBySideWindows,
+  /** 所有未最小化面板按自然尺寸做二维网格瀑布式平铺（菜单"平铺显示窗口"） */
+  gridWindows,
+  /** 还原所有最小化的面板，并按自然尺寸做网格排列（菜单"显示全部窗口"） */
+  showAllWindows,
+  /** 最小化全部面板（菜单"最小化全部窗口"） */
+  minimizeAllWindows,
+  /** 关闭全部面板（菜单"关闭全部窗口"） */
+  closeAllWindows,
+})
 
 // 卸载时关闭菜单并结束拖动排序，随之移除全局监听
 onBeforeUnmount(() => {
