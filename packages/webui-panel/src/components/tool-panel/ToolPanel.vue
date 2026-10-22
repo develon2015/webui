@@ -289,6 +289,8 @@ defineExpose({ id: panelId, minimize, restore, center, arrange, close })
   position: fixed;
   display: inline-block;
   min-width: 240px;
+  max-width: 80vw;
+  max-height: 80vh;
   padding: 0px;
   background: var(--panel-bg);
   border-radius: 4px;
@@ -410,7 +412,11 @@ defineExpose({ id: panelId, minimize, restore, center, arrange, close })
   }
 
   .panel-body {
+    position: relative;
     padding: 14px;
+    height: calc(100% - 42px - 14px * 2);
+    overflow: auto;
+    scrollbar-width: none;
   }
 
   // 尺寸调整手柄：贴边的透明热区，光标随方向变化（Windows 风格八方向调整）

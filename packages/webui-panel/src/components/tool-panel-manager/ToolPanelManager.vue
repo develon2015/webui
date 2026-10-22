@@ -505,8 +505,9 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  // 取 int32 上限-1，始终压在所有面板之上
-  z-index: 2147483646;
+  // 取 int32 上限-n，始终压在所有面板之上
+  // 除了 vue-devtools__anchor: 2147483645
+  z-index: 2147483644;
   display: flex;
   align-items: center;
   gap: 6px;
