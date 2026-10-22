@@ -12,7 +12,7 @@ import StartButton from './components/taskbar/StartButton.vue'
   <ToggleToolPanel />
   <VerticalToolPanelManager />
 
-  <ToolPanelManager theme="sci-fi">
+  <ToolPanelManager>
     <template #prepend>
       <StartButton />
     </template>
