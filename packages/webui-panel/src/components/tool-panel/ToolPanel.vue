@@ -287,7 +287,11 @@ defineExpose({ id: panelId, minimize, restore, center, arrange, close })
   }
 
   position: fixed;
-  display: inline-block;
+  // 纵向 flex 布局：面板高度未指定时随内容撑开（受 max-height 钳制），
+  // 指定高度（窗口排列 / 拖拽缩放）时面板体填充剩余空间；
+  // fixed 定位元素的宽度同样按内容收缩适配，外观与 inline-block 一致
+  display: flex;
+  flex-direction: column;
   min-width: 240px;
   max-width: 80vw;
   max-height: 80vh;
@@ -312,6 +316,8 @@ defineExpose({ id: panelId, minimize, restore, center, arrange, close })
     align-items: center;
     gap: 2px;
     height: 42px;
+    // 标题栏高度固定，不参与面板空间压缩（压缩全部由面板体承担）
+    flex-shrink: 0;
     padding: 0 12px;
     border-bottom: 1px solid var(--header-border);
     border-image: var(--header-line) 1;
@@ -414,7 +420,12 @@ defineExpose({ id: panelId, minimize, restore, center, arrange, close })
   .panel-body {
     position: relative;
     padding: 14px;
-    height: calc(100% - 42px - 14px * 2);
+    // 填充标题栏以外的剩余空间：flex 布局按容器钳制后的实际尺寸分配空间，
+    // 不依赖父级确定高度 —— 面板未指定高度时随内容撑开（max-height 钳制后自动收缩），
+    // 指定高度（排列 / 缩放）或被 max-height 钳制时内容超出即启用滚动
+    // （min-height: 0 允许面板体收缩到小于内容高度，是触发 overflow 滚动的关键）
+    flex: 1;
+    min-height: 0;
     overflow: auto;
     scrollbar-width: none;
   }
