@@ -1,6 +1,11 @@
 <template>
   <!-- 主题类名切换任务栏配色变量；vertical 类切换为竖排布局 -->
   <div ref="barRef" class="tool-panel-manager" :class="[`theme-${theme}`, { vertical: mode === 'vertical' }]" @wheel="onBarWheel" @contextmenu.prevent.stop="openBarMenu">
+    <!-- 任务栏前插槽：在任务项前插入自定义内容（作为任务栏 flex 子项参与布局） -->
+    <div class="taskbar-prepend" v-if="$slots.prepend">
+      <slot name="prepend"></slot>
+    </div>
+
     <!-- 任务栏：罗列所有面板实例；按住任务项拖动可调整顺序 -->
     <div
       v-for="panel in registry.panels"
@@ -22,6 +27,11 @@
         <span class="color-block block-2"></span>
       </template>
       <span class="taskbar-title">{{ panel.title() }}</span>
+    </div>
+
+    <!-- 任务栏后插槽：在任务项后插入自定义内容（作为任务栏 flex 子项参与布局） -->
+    <div class="taskbar-append" v-if="$slots.append || $slots.prepend">
+      <slot name="append"></slot>
     </div>
 
     <!-- 右键菜单（Teleport 到 body，需单独绑定主题类名以继承配色变量） -->
@@ -632,6 +642,12 @@ onBeforeUnmount(() => {
       white-space: nowrap;
       text-overflow: ellipsis;
     }
+  }
+
+  .taskbar-prepend, .taskbar-append {
+    display: flex;
+    flex: 1;
+    color: var(--item-color);
   }
 }
 
