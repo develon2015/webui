@@ -1,0 +1,34 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write # npm Trusted Publisher 需要 OIDC token
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # 自带 npm >= 11.5.1，支持无 token 的 OIDC 发布
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build -ws
+
+      - name: Publish @develon/webui-panel
+        run: npm publish -w @develon/webui-panel
+        env:
+          NPM_CONFIG_PROVENANCE: true
