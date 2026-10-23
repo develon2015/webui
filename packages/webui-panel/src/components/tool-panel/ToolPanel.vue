@@ -391,11 +391,18 @@ defineExpose({ id: panelId, minimize, restore, center, arrange, close })
     }
 
     .panel-title {
+      display: flex;
+      // 居中优先，但若会导致溢出则回退到 start 对齐
+      align-items: safe center;
       flex: 1;
+      height: 100%;
+      overflow: auto;
+      scrollbar-width: none;
+      text-wrap: balance;
       font-family: "Kaiti SC", "STKaiti", KaiTi, "KaiTi TC", "BiauKai", "DFKai-SB", cursive, serif;
       font-size: 20px;
       font-weight: 400;
-      line-height: 16px;
+      line-height: 1.05;
       letter-spacing: 0px;
       color: var(--title-color);
     }

@@ -17,10 +17,9 @@ onMounted(() => {
       <ToolPanelManager theme="sci-fi"></ToolPanelManager>
     </ToolPanel>
 
-    <ToolPanel theme="sci-fi" :icon="buildIcon" title="构建工具" class="panel">
+    <ToolPanel theme="sci-fi" :icon="buildIcon" title="这是一个非常长的标题，尝试调整面板宽度以观察其变化" class="panel">
       <div class="content">
-        <button>构建</button>
-        <button>清理</button>
+        <span>它在宽度非常冗余时应该会显示在一行内，宽度较小时会换行显示且长度相当，宽度不足时溢出部分仍可滚动查看</span>
       </div>
     </ToolPanel>
 
@@ -44,7 +43,10 @@ onMounted(() => {
 
   .content {
     display: flex;
+    height: 100%;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
   }
 }
